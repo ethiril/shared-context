@@ -1,0 +1,13 @@
+# Per-team / per-instance content — never part of the shareable framework.
+/features/
+/AGENTS.md
+/dashboard.html
+
+# Local Claude Code config (contains absolute paths).
+.claude/settings.local.json
+
+# Runtime artifacts produced by the orchestrator hook.
+framework/orchestrator/.last-run.log
+
+# OS noise.
+.DS_Store
