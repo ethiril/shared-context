@@ -132,11 +132,22 @@ button.tab.active .tab-count { background: var(--accent); color: #000; }
 .tab-note { margin-left: auto; font-size: 11px; padding-right: 4px; }
 .tab-panel.hidden { display: none; }
 
-/* Superseded browse entries ----------------------------------- */
-details.browse-file.superseded > summary { opacity: 0.55; }
-details.browse-file.superseded > summary:hover { opacity: 0.85; }
-.bf-tag.superseded { background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+/* Superseded / skipped browse entries -------------------------- */
+details.browse-file.superseded > summary,
+details.browse-file.skipped > summary { opacity: 0.55; }
+details.browse-file.superseded > summary:hover,
+details.browse-file.skipped > summary:hover { opacity: 0.85; }
+.bf-tag.superseded,
+.bf-tag.skipped { background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+.bf-tag.skipped { color: #c97e3c; border-color: #c97e3c44; }
 .bf-summary { background: rgba(110, 168, 254, 0.06); border-left: 2px solid var(--accent); padding: 6px 12px; margin: 0 0 10px; border-radius: 2px; font-size: 12.5px; }
+
+/* STALE "Open for the human" items + first-raised suffix -------- */
+.attention-list li.stale { padding-left: 8px; border-left: 3px solid #d9534f; background: rgba(217, 83, 79, 0.06); border-radius: 3px; }
+.stale-badge { display: inline-block; background: #d9534f; color: #fff; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-right: 6px; vertical-align: middle; }
+.first-raised { color: var(--muted); font-size: 0.92em; font-style: italic; }
+/* Inside per-feature "Open for the human" lists */
+h3 + ul li.stale, .card-body ul li.stale { padding-left: 8px; border-left: 3px solid #d9534f; background: rgba(217, 83, 79, 0.06); border-radius: 3px; margin-left: -8px; }
 
 /* Archived feature card --------------------------------------- */
 details.feature.archived { opacity: 0.78; }

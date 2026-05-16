@@ -13,10 +13,13 @@ The detailed protocol agents follow is in `README.md`. This file is just the par
 3. **Let agents work** — they append logs, contracts, decisions, and status snapshots to `features/<slug>/`.
 4. **Before `/clear`**, ask the agent:
    > *"Write a digest and a cursor."*
-5. **After `/clear`** (or a new session):
+5. **Refresh the dashboard when you want a synthesised view:**
+   > *"/refresh `<slug>`"*
+   This rewrites the orchestrator snapshot + `dashboard.html` in the current session. The agent may pop one or two tight yes/no prompts (MISSION amendments, tombstones) before writing — answer them inline.
+6. **After `/clear`** (or a new session):
    > *"Quick resume on feature `<slug>`."*
 
-That's the whole loop.
+That's the whole loop. `/refresh` replaces the old hook-driven auto-snapshot — you decide when to synthesise, the agents handle the rest.
 
 ---
 

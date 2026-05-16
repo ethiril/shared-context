@@ -20,7 +20,7 @@ If you've already done these earlier in this session, skip them.
 
 ### 2. Find your read cursor
 
-`features/$ARGUMENTS/cursors/<your-repo>/` latest file. Note `last_log_read`. If no cursor exists, treat anything newer than the latest orchestrator snapshot's `at:` as new.
+`features/$ARGUMENTS/cursors/<your-repo>/current.md` — note `last_log_read`. If `current.md` doesn't exist, fall back to the latest timestamped file in that folder (legacy). If no cursor at all, treat anything newer than the latest orchestrator snapshot's `at:` as new.
 
 ### 3. Pull your inbox
 
@@ -33,37 +33,52 @@ If a `kind: pivot` is in the list, read it **first** — it may invalidate the r
 
 ### 4. Report — don't write yet
 
-Output a compact table to the user:
+Output a compact table to the user. Sort blocking items (`ask`, `blocker`, `pivot`) to the top; conversational items (`question`, `fyi`) to the bottom.
 
 ```
-| # | kind          | from              | summary                                | suggested response       |
-|---|---------------|-------------------|----------------------------------------|--------------------------|
-| 1 | ask           | subscriptions-gw  | <summary from frontmatter>             | answer (substantive)     |
-| 2 | contract-change | app-gateway     | <summary>                              | ack + update consumer    |
-| 3 | fyi           | app-gateway       | <summary>                              | ack only                 |
+| # | kind            | block? | from              | summary                                | suggested response       |
+|---|-----------------|--------|-------------------|----------------------------------------|--------------------------|
+| 1 | ask             | yes    | subscriptions-gw  | <summary>                              | answer (substantive)     |
+| 2 | contract-change | yes    | app-gateway       | <summary>                              | ack + update consumer    |
+| 3 | question        | no     | app-gateway       | <summary>                              | answer when convenient   |
+| 4 | fyi             | no     | app-gateway       | <summary>                              | ack only                 |
 ```
 
-Use the `summary:` frontmatter when available; fall back to the first sentence of the body.
+Use the `summary:` frontmatter when available; fall back to the first sentence of the body. The `block?` column comes from the kind: `ask | blocker | pivot | contract-change` → yes; `question | fyi | change | answer | ticket-update` → no.
 
-Then propose what you'd do for each — concrete actions, not vague gestures. **Wait for the user to confirm before writing anything.**
+### 5. Ask for confirmation (tightly)
 
-### 5. On the user's go-ahead
+**If 1–4 inbox items:** call `AskUserQuestion` once with one question per inbox row. Each question header is the kind + sender (e.g. `"ask from subs-gateway"`). Options (≤4 per question, recommended first):
 
-For each item the user approves:
+- **Answer** — write a substantive `kind: answer`. (Recommended for `ask` / `question` / `blocker`.)
+- **Ack** — short `kind: ack` confirming you've absorbed it. (Recommended for `fyi` / `change` you're not touching.)
+- **Change** — make the code change and write `kind: change` referencing the inbound. (Recommended when a `change` or `contract-change` affects your code.)
+- **Skip** — defer; not writing anything this turn. (Use for non-blocking `question`s when heads-down.)
 
-- **ask** → write a `kind: answer` log entry. Frontmatter: `from: <self>`, `to: [<asker>]`, `refs: [log/<inbound-filename>]`, `summary: <one sentence>`. Body: the actual answer.
-- **change / contract-change** → if it affects your code, make the change and write a `kind: change` (or `kind: contract-change` if you're publishing a new contract version) referencing the inbound. If it doesn't, write a `kind: ack` to confirm you've absorbed it.
-- **fyi** → usually a `kind: ack` is enough.
-- **blocker** → if you can unblock, write a `kind: answer` describing how. If not, escalate to the user.
-- **pivot** → don't ack mechanically; you've already absorbed it at step 3. Your follow-up is to write a `kind: change` describing what you're abandoning vs. continuing, and (if your code state shifted materially) a new status under `repos/<self>/`.
+Set the **first** option to the recommended response per kind, append " (Recommended)" to its label.
 
-The user may say "redirect this one" or "skip" for any row. Honour that.
+**If ≥5 inbox items:** skip `AskUserQuestion` (it caps at 4 questions). Fall back to a one-line per-row text proposal and a single "go ahead / change anything?" prompt.
 
-### 6. Update your cursor
+**Wait for the user's answers before writing anything.** The user may say "Other → redirect this to X" for any row — honour that.
 
-After writing responses, drop a fresh `cursors/<self>/<UTC-ISO-timestamp>.md` setting `last_log_read` to the latest log filename you processed. This keeps the next `/check-in` cheap.
+### 6. Write the responses
 
-### 7. Wrap up
+For each option the user selected:
+
+- **Answer** → write a `kind: answer` log entry. Frontmatter: `from: <self>`, `to: [<inbound's from>]`, `refs: [log/<inbound-filename>]`, `summary: <one sentence>`. Body: the actual answer (50–200 words; the lint hook will warn if longer).
+- **Ack** → write a `kind: ack` log entry. Same frontmatter shape. Body: 1–3 sentences confirming you've absorbed it; flag anything that needs follow-up.
+- **Change** → make the code change first, then write a `kind: change` (or `kind: contract-change` if you're publishing a new contract version) referencing the inbound.
+- **Skip** → don't write anything for that row. The cursor write at step 7 will still advance `last_log_read` past the inbound, marking it as seen.
+
+Special kinds:
+- **ticket / ticket-update** → if you're the assignee, read `tickets/<slug>.md`, plan your work, then `Ack` with a one-line note. Don't restate the ticket content in the ack.
+- **pivot** → you've already absorbed it at step 3. The right follow-up is `Change` describing what you're abandoning vs. continuing, and (if your code state shifted materially) a new status under `repos/<self>/`. The Ack option is wrong for pivots; surface that to the user if they pick it.
+
+### 7. Update your cursor
+
+After writing responses, overwrite `cursors/<self>/current.md` setting `last_log_read` to the latest log filename you processed (whether you answered it or skipped). This keeps the next `/check-in` cheap.
+
+### 8. Wrap up
 
 In one sentence, tell the user what you wrote and whether anything you saw deserves a fresh status snapshot (`repos/<self>/`) or a fresh digest. Don't write the digest yourself — that's `/handoff` territory.
 
