@@ -11,7 +11,7 @@ Steps:
 
 1. Run the Quick resume read list (see `/resume` or §4.1 Quick resume) — `MISSION.md`, latest orchestrator snapshot, post-snapshot pivots, your repo's latest status, asks `to:` you.
 2. Read `features/$ARGUMENTS/_index.md` — generated index of every entry with summaries. Skim this rather than opening individual files.
-3. Read `features/$ARGUMENTS/cursors/<your-repo>/` — latest file (what you previously synced against).
+3. Read `features/$ARGUMENTS/cursors/<your-repo>/current.md` (rolling). If `current.md` doesn't exist, fall back to the latest timestamped file in that folder (legacy convention) — they're equivalent for read purposes.
 4. For each API surface you'll touch, read `features/$ARGUMENTS/contracts/<api>/` latest file (skip versions marked `status: superseded` or tombstoned).
 5. Read `features/$ARGUMENTS/decisions/` files newer than your cursor's `last_decision_read`, with `status: accepted` (skip superseded).
 6. Read `features/$ARGUMENTS/log/` entries newer than max(latest snapshot's `at`, cursor's `last_log_read`).

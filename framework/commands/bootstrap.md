@@ -11,7 +11,7 @@ Steps (run in this order):
 
 1. **Scaffold the folder structure** from the shared-context repo root:
    ```bash
-   mkdir -p features/$ARGUMENTS/{overview,repos,contracts,decisions,digest,log,cursors,orchestrator}
+   mkdir -p features/$ARGUMENTS/{overview,repos,contracts,decisions,digest,log,tickets,cursors,orchestrator}
    cp framework/templates/MISSION.md features/$ARGUMENTS/MISSION.md
    ```
 
