@@ -130,14 +130,6 @@ Items needing your attention pin to the top. Per-feature pages live alongside; t
 
 ---
 
-## Sharing the framework with another team
-
-Copy the `framework/` folder into a fresh repo, fill in `AGENTS.md` from [`framework/AGENTS.template.md`](./framework/AGENTS.template.md), then run setup steps 1–4 above for the new team's repos. Paths auto-discover from the repo root.
-
-See [`framework/examples/sample-feature/`](./framework/examples/sample-feature/) for a complete worked feature.
-
----
-
 ## Where to dig deeper
 
 - [`framework/README.md`](./framework/README.md) — agent protocol. (Agents read this; you probably don't need to.)
