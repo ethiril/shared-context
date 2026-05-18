@@ -21,11 +21,15 @@ Bootstrap new feature **$ARGUMENTS**.
 
 3. Write the first overview at `features/$ARGUMENTS/overview/<UTC-ISO-timestamp>-<your-repo>.md` (YAML+body). Frontmatter: `{type: overview, author: <your-repo>, at: <iso>, status: active, summary: <one sentence>}`. Body: goal, in/out scope, repos, success criteria. Shape: `framework/README.md` §7 → overview.
 
-4. Write your repo's first status as a **positional** record: `features/$ARGUMENTS/repos/<your-repo>/<UTC-ISO-timestamp>.positional`. Single line, field separator `|`, list separator `~`. Schema (README §7 → repo status):
+4. Write your repo's first status as a **positional** record: `features/$ARGUMENTS/repos/<your-repo>/<UTC-ISO-timestamp>.positional`. Single line, field separator `|`, list separator `~`. Schema (9 fields, 8 pipes — see README §7 → repo status):
    ```
    repo|at|summary|current_goal|done|next|blocked_on|contracts_in_play|open_questions
    ```
-   `contracts_in_play` and `open_questions` are inline JSON arrays (`[]` if none). Even "not started; awaiting kick-off" is valid — fill `summary` + `current_goal`, leave list fields empty.
+   `done`, `next`, `blocked_on` are plain `~`-separated lists — empty = blank between pipes. `contracts_in_play` and `open_questions` are inline JSON — empty = `[]` (a blank field is a parse error). Minimal bootstrap-state line (everything empty but `summary` + `current_goal`):
+   ```
+   <repo>|<iso>|Bootstrapped; awaiting kickoff|<one-sentence goal>||||[]|[]
+   ```
+   Eyeball the pipe count before you save: 8 pipes, no more.
 
 5. Trigger first orchestrator snapshot — ask the orchestrator session (or run `/refresh $ARGUMENTS` there) to write `features/$ARGUMENTS/orchestrator/<UTC-ISO-timestamp>-orchestrator.md` with `trigger: bootstrap` (YAML+body).
 
