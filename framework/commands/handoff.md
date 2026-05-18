@@ -5,7 +5,7 @@ argument-hint: <feature-slug>
 
 You are handing off shared-context feature **$ARGUMENTS** before a `/clear` or session end.
 
-Follow the End-of-session protocol from your shared-context folder's `framework/README.md` §4.3. (Your repo's `CLAUDE.md` declares where shared-context lives.)
+Follow the End-of-session protocol from your shared-context folder's `framework/README.md` §2 → Session end. (Your repo's `CLAUDE.md` declares where shared-context lives.)
 
 Two writes, **in this order**:
 

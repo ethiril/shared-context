@@ -5,7 +5,7 @@ argument-hint: <feature-slug>
 
 You are resuming work on shared-context feature: **$ARGUMENTS**.
 
-Follow the Quick resume protocol from your shared-context folder's `framework/README.md` §4.1. (Your repo's `CLAUDE.md` declares where shared-context lives.)
+Follow the Quick resume protocol from your shared-context folder's `framework/README.md` §2 → Quick resume. (Your repo's `CLAUDE.md` declares where shared-context lives.)
 
 Once-per-session (skip if you've already done these this session):
 1. Read `framework/README.md` and `AGENTS.md` from your shared-context folder.

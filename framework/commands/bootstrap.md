@@ -18,7 +18,7 @@ Steps (run in this order):
 2. **Fill in `MISSION.md`**: ask the user (or use what you already know) for Goal, Scope in/out, Repos involved, and Success criteria. Edit `features/$ARGUMENTS/MISSION.md` directly — it's the one place humans edit by hand.
 
 3. **Write the first overview snapshot**:
-   `features/$ARGUMENTS/overview/<UTC-ISO-timestamp>-<your-repo>.md` with frontmatter `{type: overview, author: <your-repo>, at: <iso>, status: active, summary: <one sentence>}` and a body covering goal, in-scope, out-of-scope, repos involved, success criteria. (See `framework/README.md` §8 in shared-context.)
+   `features/$ARGUMENTS/overview/<UTC-ISO-timestamp>-<your-repo>.md` with frontmatter `{type: overview, author: <your-repo>, at: <iso>, status: active, summary: <one sentence>}` and a body covering goal, in-scope, out-of-scope, repos involved, success criteria. (Overview frontmatter shape: `framework/README.md` §7 → overview.)
 
 4. **Write your repo's first status** at `features/$ARGUMENTS/repos/<your-repo>/<UTC-ISO-timestamp>.md` — even if there's nothing to report yet ("not started; awaiting kick-off"). This gives future-you and other repos a brief to read.
 
