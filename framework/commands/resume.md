@@ -1,25 +1,21 @@
 ---
 description: Quick resume on a shared-context feature (after /clear or similar)
 argument-hint: <feature-slug>
+model: claude-haiku-4-5-20251001
 ---
 
-You are resuming work on shared-context feature: **$ARGUMENTS**.
+Quick resume on feature **$ARGUMENTS**. Protocol: `framework/README.md` §2 → Quick resume.
 
-Follow the Quick resume protocol from your shared-context folder's `framework/README.md` §2 → Quick resume. (Your repo's `CLAUDE.md` declares where shared-context lives.)
+**Once-per-session (skip if already loaded):** `framework/README.md`, `AGENTS.md` → identify yourself from CWD.
 
-Once-per-session (skip if you've already done these this session):
-1. Read `framework/README.md` and `AGENTS.md` from your shared-context folder.
-2. Identify yourself from your CWD.
+**For `$ARGUMENTS`, read in order:**
 
-Then for feature `$ARGUMENTS`:
-1. Read `features/$ARGUMENTS/MISSION.md` — feature identity.
-2. Read the latest file in `features/$ARGUMENTS/orchestrator/` (lexically last). **This is your checkpoint.** It's curated and current. Treat it as having absorbed every log, decision, and digest older than its `at:`.
-3. Read `features/$ARGUMENTS/log/` entries with `kind: pivot` newer than the snapshot's `at:`. Pivots override anything they `supersedes`.
-4. Read `features/$ARGUMENTS/repos/<your-repo>/` — latest file. That's your task brief.
-5. Read `features/$ARGUMENTS/log/` entries whose `to:` includes your repo, newer than the snapshot.
+1. `features/$ARGUMENTS/MISSION.md` — feature identity.
+2. Latest file in `features/$ARGUMENTS/orchestrator/` (lexically last). **Your checkpoint** — treat as having absorbed every log/decision/digest older than its `at:`. Fall back to latest `digest/` if no snapshot exists.
+3. `features/$ARGUMENTS/log/` entries newer than the checkpoint with `kind: pivot`. Pivots override what they `supersedes`.
+4. `features/$ARGUMENTS/repos/<your-repo>/` latest file — your task brief.
+5. `features/$ARGUMENTS/log/` entries newer than the checkpoint with `to:` including your repo.
 
-**Default skip rule**: ignore any file with `status: superseded` in frontmatter, or with a sibling `*.superseded.md` tombstone. The orchestrator snapshot is your source of truth for what's still live.
+**Skip** files with `status: superseded` or a sibling `*.superseded.md` tombstone (use `/audit` if you need them).
 
-If no orchestrator snapshot exists yet, fall back to the latest `digest/` file as the checkpoint.
-
-Soft budget: ≤ 5k tokens of reads before doing real work. After reading, tell me in one paragraph what state you found and what you want to do next.
+Budget ≤ 5k tokens. Report state found + next action in one paragraph.

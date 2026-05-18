@@ -153,17 +153,17 @@ Files under `log/`, `digest/`, `decisions/`, `contracts/`, `repos/<self>/`, `cur
 3. **`summary:` mandatory** (≤ 30 words). It's what shows up in `_index.md`.
 4. **Link, don't restate.** Reference decisions/contracts by filename.
 5. **No throat-clearing.** Drop "Hi, just wanted to update you on…", "Here's a quick summary…". Start with substance.
-6. **Word budgets per body** (enforced by [`bin/hook-lint.sh`](./bin/hook-lint.sh)):
+6. **Word budgets per body** (enforced by [`bin/hook-lint.sh`](./bin/hook-lint.sh)). Budgets apply to body content regardless of wrapper format — for compact formats (DSL log, positional repos, DSL contracts), the entire record's content after the structural fields counts as "body":
 
-   | Artifact            | Budget         |
-   |---------------------|----------------|
-   | `log/` entries      | 50–200 words   |
-   | `decisions/` ADRs   | 100–300 words  |
-   | `contracts/<api>/`  | unlimited (schema is schema; no commentary outside the schema) |
-   | `repos/<self>/`     | 100–250 words  |
-   | `digest/`           | 400–800 words  |
-   | `cursors/<self>/`   | ≤ 80 words (frontmatter + one-line note) |
-   | `orchestrator/`     | ≤ 500 words    |
+   | Artifact            | Budget         | Format (see [`README.md` §7](./README.md#7-artefact-formats)) |
+   |---------------------|----------------|----------------------------------------------|
+   | `log/` entries      | 50–200 words   | DSL line in `log/log.dsl` (one append per event) |
+   | `decisions/` ADRs   | 100–300 words  | YAML + body (md+YAML)                       |
+   | `contracts/<api>/`  | unlimited (schema is schema; no commentary outside the schema) | DSL line per version |
+   | `repos/<self>/`     | 100–250 words  | Positional record line per file              |
+   | `digest/`           | 400–800 words  | YAML + body (md+YAML)                       |
+   | `cursors/<self>/`   | ≤ 80 words (frontmatter + one-line note) | YAML + one-line body            |
+   | `orchestrator/`     | ≤ 500 words    | YAML + body (md+YAML)                       |
 
 ### Lint enforcement
 

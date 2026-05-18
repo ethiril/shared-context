@@ -1,21 +1,20 @@
 ---
 description: Catch-up resume on a shared-context feature (new session or after a break)
 argument-hint: <feature-slug>
+model: claude-haiku-4-5-20251001
 ---
 
-You are catching up on shared-context feature: **$ARGUMENTS**.
+Catch-up on feature **$ARGUMENTS**. Protocol: `framework/README.md` §2 → Catch up.
 
-Follow the Catch up protocol from your shared-context folder's `framework/README.md` §2 → Catch up. (Your repo's `CLAUDE.md` declares where shared-context lives.)
+**Read in order:**
 
-Steps:
+1. Quick resume list (see `/resume`): `MISSION.md`, latest orchestrator snapshot, post-snapshot pivots, your repo's latest status, asks `to:` you.
+2. `features/$ARGUMENTS/_index.md` — generated entry index. Skim instead of opening each file.
+3. `features/$ARGUMENTS/cursors/<your-repo>/current.md` (rolling). Fall back to latest timestamped file if `current.md` is missing (legacy).
+4. For each API surface you'll touch: `features/$ARGUMENTS/contracts/<api>/` latest file.
+5. `features/$ARGUMENTS/decisions/` newer than cursor's `last_decision_read` with `status: accepted`.
+6. `features/$ARGUMENTS/log/` newer than `max(snapshot.at, cursor.last_log_read)`.
 
-1. Run the Quick resume read list (see `/resume` or §2 → Quick resume) — `MISSION.md`, latest orchestrator snapshot, post-snapshot pivots, your repo's latest status, asks `to:` you.
-2. Read `features/$ARGUMENTS/_index.md` — generated index of every entry with summaries. Skim this rather than opening individual files.
-3. Read `features/$ARGUMENTS/cursors/<your-repo>/current.md` (rolling). If `current.md` doesn't exist, fall back to the latest timestamped file in that folder (legacy convention) — they're equivalent for read purposes.
-4. For each API surface you'll touch, read `features/$ARGUMENTS/contracts/<api>/` latest file (skip versions marked `status: superseded` or tombstoned).
-5. Read `features/$ARGUMENTS/decisions/` files newer than your cursor's `last_decision_read`, with `status: accepted` (skip superseded).
-6. Read `features/$ARGUMENTS/log/` entries newer than max(latest snapshot's `at`, cursor's `last_log_read`).
+**Skip** `status: superseded` and tombstoned files (use `/audit $ARGUMENTS` for full history).
 
-**Default skip rule**: ignore `status: superseded` and tombstoned files. Use `/audit $ARGUMENTS` if you need to read them.
-
-Soft budget: ≤ 5k tokens. After reading, tell me what state you found and what you want to do next.
+Budget ≤ 5k tokens. Report state + next action.

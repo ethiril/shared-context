@@ -10,11 +10,17 @@ import { readFile } from 'node:fs/promises';
 import {
   listDirectoryNames,
   listMarkdownFilenames,
+  listArtefactFilenames,
   latestMarkdownFilename,
   readFileIfExists,
   readLatestMarkdown,
 } from './fs-utils.mjs';
 import { parseFrontmatter, extractSection, extractBullets } from './markdown.mjs';
+import {
+  parseDslLogFile,
+  parseDslContract,
+  parsePositionalRepoStatus,
+} from './parsers.mjs';
 
 const MS_PER_DAY = 86_400_000;
 const TOMBSTONE_VARIANTS = { SKIPPED: 'skipped' };
@@ -105,16 +111,126 @@ async function loadSubfolderedItems(folderPath) {
   return result;
 }
 
+// Multi-format loader for `log/`. Reads:
+//   - Legacy md+YAML files (one item per file).
+//   - Rolling `log.dsl` (one item per non-empty line).
+async function loadLogFolder(folderPath) {
+  const filenames = await listArtefactFilenames(folderPath);
+  const items = [];
+
+  for (const filename of filenames) {
+    const filePath = join(folderPath, filename);
+    if (filename.endsWith('.dsl')) {
+      const text = await readFile(filePath, 'utf8');
+      const parsed = parseDslLogFile(text);
+      items.push(...parsed);
+      continue;
+    }
+    if (!filename.endsWith('.md')) continue;
+    const raw = await readFile(filePath, 'utf8');
+    const { fm, body } = parseFrontmatter(raw);
+
+    const isSupersedeTombstone = fm.type === 'tombstone' || /\.superseded\.md$/.test(filename);
+    if (isSupersedeTombstone) continue;
+
+    items.push({ filename, fm, body, ts: timestampFromFilename(filename) });
+  }
+
+  return items.sort((a, b) => (b.ts || b.filename).localeCompare(a.ts || a.filename));
+}
+
+// Shared multi-format loader for `repos/<repo>/` and `contracts/<api>/`.
+// `options.positionalKind === 'repo-status'` enables `.positional` parsing.
+// `options.dslKind === 'contract'` enables `.dsl` parsing.
+async function loadFlatMultiFormatFolder(folderPath, options) {
+  const filenames = await listArtefactFilenames(folderPath);
+  const items = [];
+  const supersedeTombstones = [];
+
+  for (const filename of filenames) {
+    const filePath = join(folderPath, filename);
+    const text = await readFile(filePath, 'utf8');
+
+    if (filename.endsWith('.positional') && options.positionalKind === 'repo-status') {
+      const { fm, body } = parsePositionalRepoStatus(text);
+      if (!fm) continue;
+      items.push({ filename, fm, body, ts: timestampFromFilename(filename) });
+      continue;
+    }
+    if (filename.endsWith('.dsl') && options.dslKind === 'contract') {
+      const { fm, body } = parseDslContract(text);
+      if (!fm) continue;
+      items.push({ filename, fm, body, ts: timestampFromFilename(filename) });
+      continue;
+    }
+    if (!filename.endsWith('.md')) continue;
+
+    const { fm, body } = parseFrontmatter(text);
+
+    const isSkippedTombstone = /\.skipped\.md$/.test(filename) || fm.variant === TOMBSTONE_VARIANTS.SKIPPED;
+    if (isSkippedTombstone) {
+      fm.type = 'tombstone';
+      fm.variant = TOMBSTONE_VARIANTS.SKIPPED;
+      fm.status = STATUSES.SKIPPED;
+      items.push({ filename, fm, body, ts: timestampFromFilename(filename) });
+      continue;
+    }
+
+    const isSupersedeTombstone = fm.type === 'tombstone' || /\.superseded\.md$/.test(filename);
+    if (isSupersedeTombstone) {
+      const originalFilename = fm.original || filename.replace(/\.superseded\.md$/, '.md');
+      supersedeTombstones.push({ original: originalFilename, superseded_by: fm.superseded_by, at: fm.at });
+      continue;
+    }
+
+    items.push({ filename, fm, body, ts: timestampFromFilename(filename) });
+  }
+
+  for (const tombstone of supersedeTombstones) {
+    const target = items.find(item => item.filename === tombstone.original);
+    if (!target) continue;
+    target.fm.status = STATUSES.SUPERSEDED;
+    if (tombstone.superseded_by) target.fm.superseded_by = tombstone.superseded_by;
+    if (tombstone.at) target.fm.superseded_at = tombstone.at;
+  }
+
+  return items.sort((a, b) => b.filename.localeCompare(a.filename));
+}
+
+async function loadReposSubfolder(folderPath) {
+  const subfolders = await listDirectoryNames(folderPath);
+  const result = {};
+  for (const subfolder of subfolders) {
+    result[subfolder] = await loadFlatMultiFormatFolder(
+      join(folderPath, subfolder),
+      { positionalKind: 'repo-status' },
+    );
+  }
+  return result;
+}
+
+async function loadContractsSubfolder(folderPath) {
+  const subfolders = await listDirectoryNames(folderPath);
+  const result = {};
+  for (const subfolder of subfolders) {
+    result[subfolder] = await loadFlatMultiFormatFolder(
+      join(folderPath, subfolder),
+      { dslKind: 'contract' },
+    );
+  }
+  return result;
+}
+
 async function loadBrowseTree(featurePath) {
   return {
     overview: await loadFolderItems(join(featurePath, 'overview')),
     orchestrator: await loadFolderItems(join(featurePath, 'orchestrator')),
     digest: await loadFolderItems(join(featurePath, 'digest')),
     decisions: await loadFolderItems(join(featurePath, 'decisions')),
-    log: await loadFolderItems(join(featurePath, 'log')),
+    log: await loadLogFolder(join(featurePath, 'log')),
     tickets: await loadFolderItems(join(featurePath, 'tickets')),
-    contracts: await loadSubfolderedItems(join(featurePath, 'contracts')),
-    repos: await loadSubfolderedItems(join(featurePath, 'repos')),
+    contracts: await loadContractsSubfolder(join(featurePath, 'contracts')),
+    repos: await loadReposSubfolder(join(featurePath, 'repos')),
     cursors: await loadSubfolderedItems(join(featurePath, 'cursors')),
   };
 }
@@ -123,6 +239,27 @@ async function parseLatestSnapshot(folderPath) {
   const latest = await readLatestMarkdown(folderPath);
   if (!latest) return null;
   return { filename: latest.filename, ...parseFrontmatter(latest.content) };
+}
+
+// Find the latest status snapshot for one repo across formats:
+//   - md+YAML (legacy) → use parseFrontmatter
+//   - .positional → use parsePositionalRepoStatus
+// Returns {filename, fm, body} or null. The "latest" is by filename sort
+// (filenames begin with ISO timestamp).
+async function latestRepoStatus(folderPath) {
+  const filenames = await listArtefactFilenames(folderPath);
+  if (!filenames.length) return null;
+  const latest = filenames[filenames.length - 1];
+  const text = await readFile(join(folderPath, latest), 'utf8');
+  if (latest.endsWith('.positional')) {
+    const { fm, body } = parsePositionalRepoStatus(text);
+    return fm ? { filename: latest, fm, body } : null;
+  }
+  if (latest.endsWith('.md')) {
+    const { fm, body } = parseFrontmatter(text);
+    return { filename: latest, fm, body };
+  }
+  return null;
 }
 
 export async function loadFeature(featuresDir, slug) {
@@ -137,23 +274,33 @@ export async function loadFeature(featuresDir, slug) {
   const repoDirs = await listDirectoryNames(join(featurePath, 'repos'));
   const repoStatuses = {};
   for (const repo of repoDirs) {
-    const latest = await parseLatestSnapshot(join(featurePath, 'repos', repo));
+    const latest = await latestRepoStatus(join(featurePath, 'repos', repo));
     if (latest) repoStatuses[repo] = latest;
   }
 
+  // log items come from the rolling .dsl plus any legacy md files.
+  const logItems = await loadLogFolder(join(featurePath, 'log'));
+
   const counts = {
-    log: (await listMarkdownFilenames(join(featurePath, 'log'))).length,
+    log: logItems.length,
     decisions: (await listMarkdownFilenames(join(featurePath, 'decisions'))).length,
     digest: (await listMarkdownFilenames(join(featurePath, 'digest'))).length,
     orchestrator: (await listMarkdownFilenames(join(featurePath, 'orchestrator'))).length,
     contracts: (await listDirectoryNames(join(featurePath, 'contracts'))).length,
   };
 
-  const latestLogFilename = await latestMarkdownFilename(join(featurePath, 'log'));
+  // Latest log activity timestamp: max `at` across all log items (DSL lines
+  // and legacy md files alike).
+  const latestLogTimestamp = logItems
+    .map(item => item.ts || item.fm?.at)
+    .filter(Boolean)
+    .sort()
+    .pop() || null;
+
   const lastActivity = pickLatestTimestamp([
     orchestrator?.fm?.at,
     digest?.fm?.at,
-    timestampFromFilename(latestLogFilename),
+    latestLogTimestamp,
     ...Object.values(repoStatuses).map(status => status.fm?.at),
   ]);
 

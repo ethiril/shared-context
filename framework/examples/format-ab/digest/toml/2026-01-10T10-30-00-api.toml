@@ -1,0 +1,33 @@
+type = "digest"
+author = "api"
+at = "2026-01-10T10:30:00Z"
+summary = "v1 welcome-email pipeline shipped end-to-end on staging; both repos green, no open cross-repo questions."
+feature = "welcome-emails v1"
+contracts_active = ["contracts/welcome-email-job/2026-01-10T09-00-00-api-v1.0.0.md"]
+decisions_live = ["decisions/2026-01-10T09-00-00-fire-and-forget-semantics.md"]
+open_cross_repo = []
+
+[per_repo.api]
+state = "shipped"
+notes = "POST /signup enqueuing against welcome-email-job v1.0.0; tests green; staging verified."
+blocked = false
+
+[per_repo.worker]
+state = "shipped"
+notes = "consumer wired; payload validation; non-`en` locales fall through; staging end-to-end green."
+blocked = false
+
+[[shipped_since_bootstrap]]
+repo = "api"
+what = "POST /signup enqueue path"
+ref = "log/2026-01-10T09-30-00-api-shipped.md"
+
+[[shipped_since_bootstrap]]
+repo = "worker"
+what = "consumer + SES send + staging verification"
+ref = "log/2026-01-10T10-15-00-worker-ack.md"
+
+[where_to_look]
+wire_format = "contracts/welcome-email-job/...v1.0.0.md"
+why_fire_and_forget = "decisions/2026-01-10T09-00-00-fire-and-forget-semantics.md"
+per_repo_state = "repos/api/..., repos/worker/..."

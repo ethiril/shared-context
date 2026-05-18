@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "shared-context/contracts/welcome-email-job/v1.0.0",
+  "title": "welcome-email-job v1.0.0",
+  "type": "object",
+  "x-meta": {
+    "type": "contract",
+    "name": "welcome-email-job",
+    "version": "1.0.0",
+    "author": "api",
+    "at": "2026-01-10T09:00:00Z",
+    "summary": "v1 job schema — userId, email, locale. Enqueued on signup by API; consumed by worker.",
+    "consumers": ["worker"],
+    "breaking": false,
+    "status": "active"
+  },
+  "x-queue": {
+    "name": "welcome-emails",
+    "backend": "Redis-backed bull queue (existing)",
+    "visibility_timeout_seconds": 30
+  },
+  "x-expectations": {
+    "producer": "API enqueues exactly once per successful signup. No deduplication on the API side.",
+    "consumer": "Worker is responsible for idempotency if it adds retry in v2 (no requirement for v1).",
+    "coupling": "Fire-and-forget: API never reads job status."
+  },
+  "required": ["userId", "email", "locale"],
+  "additionalProperties": false,
+  "properties": {
+    "userId": {
+      "type": "string",
+      "description": "Stable user identifier (UUIDv4 or ULID)."
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "RFC 5322 address."
+    },
+    "locale": {
+      "type": "string",
+      "description": "BCP-47. v1 worker treats any value as `en`."
+    }
+  },
+  "examples": [
+    { "userId": "u_abc123", "email": "user@example.com", "locale": "en" }
+  ]
+}

@@ -11,3 +11,6 @@ framework/orchestrator/.last-run.log
 
 # OS noise.
 .DS_Store
+
+# Local Python venvs (e.g. tiktoken venv used by framework/bin/measure-formats.py).
+.venv*/

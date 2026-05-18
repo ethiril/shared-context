@@ -30,15 +30,17 @@ If any of these are missing the system doesn't work. Slash commands won't appear
 
 Slash commands (`/resume`, `/refresh`, `/handoff`, etc.) need to live in `~/.claude/commands/` so Claude Code picks them up in every CWD.
 
-The bundled script is the safe path — dry-run by default, refuses to overwrite anything it can't reconcile:
+The bundled script drops you into an interactive menu — nothing on disk changes until you choose `apply` or `force`:
 
 ```bash
-./framework/bin/setup-claude.sh             # dry-run; prints what would change
-./framework/bin/setup-claude.sh --apply     # create or update symlinks
-./framework/bin/setup-claude.sh --apply --force  # also replace pre-existing copies that differ (writes a .bak first)
+./framework/bin/setup-claude.sh
 ```
 
+First-run flow: type `s` (status) to see per-file state, `p` (plan) for target paths and notes, then `a` (apply) to create the symlinks. If pre-existing copies differ from source, `f` (force) replaces them and writes a `.bak` for each first. Other shortcuts: `d` (diff), `r` (refresh), `h` (help), `q` (quit).
+
 It only touches files whose names match `framework/commands/*.md`; any other files already in `~/.claude/commands/` are left alone.
+
+Optional env overrides: `CLAUDE_COMMANDS_DIR` (default `~/.claude/commands`), `SHARED_CONTEXT_ROOT` (default: auto-detected from the script's location), `NO_COLOR=1` to disable colors.
 
 Or wire them by hand:
 
@@ -127,14 +129,6 @@ Items needing your attention pin to the top. Per-feature pages live alongside; t
 - **Confirm the checkpoint after `/clear`.** First message: *"Tell me which digest you read and which contract versions you're synced against."* Catches stale-state bugs in 5 seconds.
 - **One agent per repo at a time.** Cross-repo parallelism is the point; multiple agents inside the same repo race on `repos/<self>/`.
 - **Don't hand-edit anything under `features/<slug>/`.** Append-only is structurally enforced for agents but not for humans — breaking it desyncs everyone.
-
----
-
-## Sharing the framework with another team
-
-Copy the `framework/` folder into a fresh repo, fill in `AGENTS.md` from [`framework/AGENTS.template.md`](./framework/AGENTS.template.md), then run setup steps 1–4 above for the new team's repos. Paths auto-discover from the repo root.
-
-See [`framework/examples/sample-feature/`](./framework/examples/sample-feature/) for a complete worked feature.
 
 ---
 

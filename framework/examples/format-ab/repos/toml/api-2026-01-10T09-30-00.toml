@@ -1,0 +1,26 @@
+type = "status"
+repo = "api"
+at = "2026-01-10T09:30:00Z"
+summary = "v1 enqueue shipped on main; awaiting worker ack and joint staging verification."
+current_goal = "Enqueue a welcome-email job on every successful signup. Done."
+done = [
+  "POST /signup enqueues against welcome-email-job v1.0.0",
+  "ADR for fire-and-forget semantics published",
+  "Unit + integration tests green",
+]
+next = [
+  "Joint staging signup test once worker confirms it's consuming",
+  "Nothing else on the API side for v1",
+]
+blocked_on = []
+
+[[contracts_in_play]]
+name = "welcome-email-job"
+version = "1.0.0"
+role = "owner"
+consumer = "worker"
+
+[[open_questions]]
+to = "worker"
+ask = "confirm consumer is wired and non-`en` locales fall through cleanly"
+in = "log/2026-01-10T09-30-00-api-shipped.md"
