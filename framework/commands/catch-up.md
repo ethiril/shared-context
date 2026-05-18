@@ -1,20 +1,22 @@
 ---
 description: Catch-up resume on a shared-context feature (new session or after a break)
 argument-hint: <feature-slug>
-model: claude-haiku-4-5-20251001
+model: claude-opus-4-7
 ---
 
 Catch-up on feature **$ARGUMENTS**. Protocol: `framework/README.md` §2 → Catch up.
+
+**Format note (see README §7):** Logs are append-only DSL lines in `log/log.dsl`. Repo statuses are `<iso>.positional`. Contracts are `<iso>-<repo>-v<X.Y.Z>.dsl`. Legacy `*.md`+YAML still parses — read both shapes.
 
 **Read in order:**
 
 1. Quick resume list (see `/resume`): `MISSION.md`, latest orchestrator snapshot, post-snapshot pivots, your repo's latest status, asks `to:` you.
 2. `features/$ARGUMENTS/_index.md` — generated entry index. Skim instead of opening each file.
 3. `features/$ARGUMENTS/cursors/<your-repo>/current.md` (rolling). Fall back to latest timestamped file if `current.md` is missing (legacy).
-4. For each API surface you'll touch: `features/$ARGUMENTS/contracts/<api>/` latest file.
-5. `features/$ARGUMENTS/decisions/` newer than cursor's `last_decision_read` with `status: accepted`.
-6. `features/$ARGUMENTS/log/` newer than `max(snapshot.at, cursor.last_log_read)`.
+4. For each API surface you'll touch: `features/$ARGUMENTS/contracts/<api>/` latest file (`.dsl` preferred; legacy `.md` parses).
+5. `features/$ARGUMENTS/decisions/` newer than cursor's `last_decision_read` with `status: accepted` (decisions stay YAML).
+6. `features/$ARGUMENTS/log/log.dsl` entries (and legacy `log/*.md`) newer than `max(snapshot.at, cursor.last_log_read)`. For DSL: each non-empty line is one event; use the `@at:` timestamp to compare against the cursor.
 
-**Skip** `status: superseded` and tombstoned files (use `/audit $ARGUMENTS` for full history).
+**Skip** `status: superseded`, tombstoned files, and DSL lines retired by a later `[pv]`'s `supersedes:` (use `/audit $ARGUMENTS` for full history).
 
 Budget ≤ 5k tokens. Report state + next action.

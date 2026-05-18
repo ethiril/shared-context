@@ -1,16 +1,20 @@
 ---
 description: Write a digest + cursor before /clear so the next session resumes cheaply
 argument-hint: <feature-slug>
-model: claude-sonnet-4-6
+model: claude-opus-4-7
 ---
 
 Handoff on feature **$ARGUMENTS** before `/clear` or session end. Protocol: `framework/README.md` §2 → Session end.
+
+**Format note (see README §7):** Digest and cursor stay YAML+body — no DSL writes in this command. But the **count** in step 1 spans both DSL lines (`log/log.dsl`) and legacy `log/*.md`.
 
 **Two writes, in order.**
 
 ### 1. Digest (conditional)
 
-Count log entries newer than the latest `digest/<file>.md` (or all logs if no digest):
+Count log entries newer than the latest `digest/<file>.md` (or all logs if no digest). Sum across formats:
+- Non-empty lines in `features/$ARGUMENTS/log/log.dsl` whose `@at:` is after the digest's `at:`.
+- Files matching `features/$ARGUMENTS/log/*.md` whose frontmatter `at:` (or filename timestamp) is after the digest's `at:`.
 
 | logs since last digest | action |
 |---|---|
@@ -30,10 +34,10 @@ Digest does **not** auto-render the dashboard. Run `/refresh $ARGUMENTS` if you 
 
 - `at:` — now, ISO with colons (`date -u +"%Y-%m-%dT%H:%M:%SZ"`).
 - `last_checkpoint_read` — orchestrator snapshot filename used (or the digest you just wrote if no snapshot yet).
-- `last_log_read` — latest log filename processed.
-- `last_pivot_read` — latest pivot acknowledged (or `null`).
-- `contracts_synced` — per-API version file you're synced against.
-- `last_decision_read` — latest decision file read.
+- `last_log_read` — for DSL: the `@at:` ISO of the latest `log.dsl` line processed. For legacy `.md` logs only: the filename. If both formats are in play, use the later of the two.
+- `last_pivot_read` — latest `[pv]` line `@at:` (DSL) or pivot filename (legacy) acknowledged (or `null`).
+- `contracts_synced` — per-API version file you're synced against (`.dsl` or legacy `.md`).
+- `last_decision_read` — latest decision filename read (YAML).
 
 Body: one short line — what next-session-you should remember in ≤ 5 words. Frontmatter does the work.
 
