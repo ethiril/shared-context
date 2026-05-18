@@ -10,7 +10,7 @@ Multi-repo coordination via timestamped, append-only files under `features/<slug
 
 1. Open [`AGENTS.md`](../AGENTS.md). Find the row whose CWD matches yours. That row's `Repo identity` (kebab-case) is your `<repo>` value in every filename and frontmatter `from:` / `author:` field.
 2. If no row matches, stop and ask the human to add one — don't invent an identity.
-3. If your CWD is the shared-context repo root itself, you are the `orchestrator`. Read [`orchestrator/brief.md`](./orchestrator/brief.md) instead of continuing here.
+3. If your CWD is the shared-context repo root, identity depends on **work mode**, not the directory: `orchestrator` for synthesis passes (e.g. `/refresh`) — read [`orchestrator/brief.md`](./orchestrator/brief.md) instead of continuing here. `framework` for framework-maintenance work (docs, scripts, slash commands, templates) — continue with this protocol as a normal repo identity.
 
 ---
 
