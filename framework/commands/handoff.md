@@ -6,14 +6,14 @@ model: claude-opus-4-7
 
 Handoff on feature **$ARGUMENTS** before `/clear` or session end. Protocol: `framework/README.md` §2 → Session end.
 
-**Format note (see README §7):** Digest and cursor stay YAML+body — no DSL writes in this command. But the **count** in step 1 spans both DSL lines (`log/log.dsl`) and legacy `log/*.md`.
+**Format note (see README §7):** Digest and cursor stay YAML+body — no DSL writes in this command. But the **count** in step 1 spans both DSL entries (`log/*.dsl`) and legacy `log/*.md`.
 
 **Two writes, in order.**
 
 ### 1. Digest (conditional)
 
 Count log entries newer than the latest `digest/<file>.md` (or all logs if no digest). Sum across formats:
-- Non-empty lines in `features/$ARGUMENTS/log/log.dsl` whose `@at:` is after the digest's `at:`.
+- `.dsl` files in `features/$ARGUMENTS/log/` whose filename timestamp (or `@at:`) is after the digest's `at:`.
 - Files matching `features/$ARGUMENTS/log/*.md` whose frontmatter `at:` (or filename timestamp) is after the digest's `at:`.
 
 | logs since last digest | action |
@@ -34,8 +34,8 @@ Digest does **not** auto-render the dashboard. Run `/refresh $ARGUMENTS` if you 
 
 - `at:` — now, ISO with colons (`date -u +"%Y-%m-%dT%H:%M:%SZ"`).
 - `last_checkpoint_read` — orchestrator snapshot filename used (or the digest you just wrote if no snapshot yet).
-- `last_log_read` — for DSL: the `@at:` ISO of the latest `log.dsl` line processed. For legacy `.md` logs only: the filename. If both formats are in play, use the later of the two.
-- `last_pivot_read` — latest `[pv]` line `@at:` (DSL) or pivot filename (legacy) acknowledged (or `null`).
+- `last_log_read` — filename of the latest log entry processed (or its `@at:` ISO — both compare correctly against filename timestamps). Works for both `.dsl` and legacy `.md` entries.
+- `last_pivot_read` — latest `[pv]` entry filename (or `@at:` ISO) acknowledged (or `null`).
 - `contracts_synced` — per-API version file you're synced against (`.dsl` or legacy `.md`).
 - `last_decision_read` — latest decision filename read (YAML).
 

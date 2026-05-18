@@ -109,14 +109,14 @@ features/<slug>/
 
 | What happened                                | Write where                                                                                        |
 |----------------------------------------------|----------------------------------------------------------------------------------------------------|
-| Code change others should know about         | Append line to `log/log.dsl` (`[kind]` = `ch` or `fy`)                                              |
-| Changed/added an API surface                 | New `contracts/<api>/<iso>-<repo>-v<version>.dsl` + append to `log/log.dsl` (`[cc]`)                |
-| Non-obvious design choice                    | New `decisions/<iso>-<title>.md` + append to `log/log.dsl` (`[ch]` or `[fy]` referencing it)        |
-| Need something from another repo (blocking)  | Append to `log/log.dsl` (`[q]`, `from > <repo>`)                                                    |
-| Open-ended discussion, not blocking          | Append to `log/log.dsl` (`[q]`, non-blocking by tone)                                               |
-| Answering an inbound `ask`/`question`        | Append to `log/log.dsl` (`[a]`, `refs: <inbound-line-timestamp>`)                                   |
-| Scoped cross-repo work needing a spec        | New `tickets/<kebab-slug>.md` + append to `log/log.dsl` (`[tk]`, `refs: tickets/<slug>.md`)         |
-| Updating an existing ticket                  | Edit `tickets/<slug>.md` in place + append to `log/log.dsl` (`[tk]`)                                |
+| Code change others should know about         | New `log/<iso>-<self>-<slug>.dsl` (`[kind]` = `ch` or `fy`)                                          |
+| Changed/added an API surface                 | New `contracts/<api>/<iso>-<repo>-v<version>.dsl` + new `log/<iso>-<self>-<slug>.dsl` (`[cc]`)       |
+| Non-obvious design choice                    | New `decisions/<iso>-<title>.md` + new `log/<iso>-<self>-<slug>.dsl` (`[ch]` or `[fy]` referencing it) |
+| Need something from another repo (blocking)  | New `log/<iso>-<self>-<slug>.dsl` (`[q]`, `from > <repo>`)                                           |
+| Open-ended discussion, not blocking          | New `log/<iso>-<self>-<slug>.dsl` (`[q]`, non-blocking by tone)                                      |
+| Answering an inbound `ask`/`question`        | New `log/<iso>-<self>-<slug>.dsl` (`[a]`, `refs: <inbound-filename>`)                                |
+| Scoped cross-repo work needing a spec        | New `tickets/<kebab-slug>.md` + new `log/<iso>-<self>-<slug>.dsl` (`[tk]`, `refs: tickets/<slug>.md`) |
+| Updating an existing ticket                  | Edit `tickets/<slug>.md` in place + new `log/<iso>-<self>-<slug>.dsl` (`[tk]`)                       |
 | Contract version discussed and declined      | `contracts/<api>/<iso>-<repo>-v<version>.skipped.md` (YAML tombstone) + log entry explaining why    |
 | Direction is changing                        | `/pivot <slug> <reason>` — writes `[pv]` line with `supersedes:`                                    |
 | Your repo's status changed                   | New `repos/<self>/<iso>.positional`                                                                 |
@@ -147,7 +147,7 @@ YYYY-MM-DDTHH-MM-SS-<repo>[-<slug>].md
 
 Compact-format artefacts (see §7):
 
-- **Log entries:** `features/<slug>/log/log.dsl` — single rolling file per feature; append-only.
+- **Log entries:** `features/<slug>/log/<iso>-<repo>-<slug>.dsl` — one file per event; concurrent writers never collide.
 - **Repo statuses:** `features/<slug>/repos/<repo>/<iso>.positional` — one file per status snapshot.
 - **Contract versions:** `features/<slug>/contracts/<api>/<iso>-<repo>-v<X.Y.Z>.dsl` — one file per version.
 
@@ -161,11 +161,13 @@ Compact-format artefacts (see §7):
 
 Legacy md+YAML files of any artefact type are still parsed by the renderer indefinitely — agents only need to use the new shapes on **new** writes.
 
-### log entries — DSL, rolling single-file per feature
+### log entries — DSL, one file per event
 
-Path: `features/<slug>/log/log.dsl`. **Append a single line per event.** One file per feature, not one file per entry.
+Path: `features/<slug>/log/<iso>-<repo>-<slug>.dsl`. **One event per file.** The whole file is a single DSL line. Per-file naming means concurrent writers from different repos never collide on the same path.
 
-Grammar (one line per event):
+Filename: `<iso>` is `YYYY-MM-DDTHH-MM-SS` (UTC, colons encoded as dashes), `<repo>` is your identity from `AGENTS.md`, `<slug>` is a short kebab-case topic.
+
+Grammar (one line per file):
 
 ```
 from > to [kind] @at: summary | refs: r1,r2 | body...
@@ -176,12 +178,12 @@ from > to [kind] @at: summary | refs: r1,r2 | body...
 - `kind` — one of: `cc` (contract-change), `q` (question), `a` (answer), `fy` (fyi), `bl` (blocker), `pv` (pivot), `ch` (change), `ak` (ack), `tk` (ticket-update).
 - `@at` — ISO timestamp with colons (UTC). Legacy alternative: `[at]` as a leading prefix; the parser accepts both.
 - `summary` — required; ≤ 30 words.
-- `refs:` — optional; comma-separated paths.
+- `refs:` — optional; comma-separated paths (log filenames or paths to other artefacts).
 - `body` — free-form prose after the final `|`. Pipe-escape (`\|`) any embedded `|`.
 
-For `kind: pv` (pivot): include `supersedes: all-prior` (or a comma-separated list of timestamps) as a labelled section before `body`.
+For `kind: pv` (pivot): include `supersedes: all-prior` (or a comma-separated list of filenames or `@at` timestamps) as a labelled section before `body`.
 
-Example:
+Example file `2026-05-15T14-23-00-api-welcome-email-cc.dsl`:
 
 ```
 api > worker [cc] @2026-05-15T14:23:00Z: POST /signup now enqueues welcome-email-job v1.0.0 | refs: contracts/auth-api/2026-05-15T14-23-00-backend-v0.3.0.dsl, decisions/2026-05-15T14-00-00-fire-and-forget.md | POST /signup enqueues a welcome-email job after the user row commits. Fire-and-forget — no retry, no callback. @worker: please confirm dequeue.
@@ -192,7 +194,7 @@ api > worker [cc] @2026-05-15T14:23:00Z: POST /signup now enqueues welcome-email
 - `question` (also `q`) is non-blocking; "while you're here…".
 - `ticket` first announcement uses `tk` and points at `tickets/<slug>.md` in refs; subsequent updates use `tk` too.
 
-Append-only. Tombstoning a single line is not supported — pivots use `supersedes` to retire prior lines.
+Append-only at the folder level: write new files; don't edit existing ones. Pivots retire prior entries via `supersedes:` referencing the prior filenames (or their `@at` timestamps).
 
 ### contract versions — DSL, one file per version
 

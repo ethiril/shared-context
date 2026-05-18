@@ -1,4 +1,4 @@
-// Parsers for the v2 compact artefact formats (DSL log, DSL contract,
+// Parsers for the compact artefact formats (DSL log entry, DSL contract,
 // positional repo-status). Each parser returns a `{fm, body}` shape compatible
 // with the YAML-frontmatter parser in markdown.mjs so the downstream renderer
 // can treat them uniformly.
@@ -28,6 +28,10 @@ function expandKind(short) {
 // `refs:` is optional. For `kind: pv`, a labelled `supersedes: ...` section
 // may appear between `summary` and `refs`/`body`.
 // Returns `{fm, body}` shaped like the YAML parser.
+//
+// Per the per-event filename convention, a DSL log *file* contains exactly one
+// such line. Use `parseDslLogEntry(text)` from the loader; this function is the
+// underlying line-shape parser, also reused by the lint hook.
 export function parseDslLogLine(line) {
   const fm = { type: 'log' };
   let body = '';
@@ -180,23 +184,12 @@ function parseInlineJsonOrEmpty(value) {
   }
 }
 
-// Read a rolling log.dsl file and return an array of items
-// `{filename, fm, body, ts}` where filename is synthesised per line so each
-// event has a unique id for the renderer's per-row downstream rendering.
-export function parseDslLogFile(text) {
-  const items = [];
-  const lines = text.split('\n');
-  let lineNumber = 0;
-  for (const rawLine of lines) {
-    lineNumber += 1;
-    if (!rawLine.trim()) continue;
-    const { fm, body } = parseDslLogLine(rawLine);
-    if (!fm) continue;
-    const ts = fm.at || null;
-    // Synthesise a stable filename from the timestamp + line number for sorting.
-    const tsForFilename = ts ? ts.replace(/[:T]/g, m => (m === 'T' ? 'T' : '-')) : `line-${lineNumber}`;
-    const filename = `${tsForFilename.replace('Z', '')}-${fm.from || 'unknown'}-line${lineNumber}.dsl-row`;
-    items.push({ filename, fm, body, ts });
+// Parse a per-event DSL log file. The whole file is a single event line
+// (ignoring blank lines). Returns `{fm, body}` shaped like the YAML parser, or
+// `{fm: null, body: text}` if the line is unparseable.
+export function parseDslLogEntry(text) {
+  for (const rawLine of text.split('\n')) {
+    if (rawLine.trim()) return parseDslLogLine(rawLine);
   }
-  return items;
+  return { fm: null, body: '' };
 }

@@ -24,7 +24,7 @@ from pathlib import Path
 
 BUDGETS = {
     "log":                     200,
-    "log-dsl":                 200,  # applied to the last appended line of log.dsl
+    "log-dsl":                 200,  # one DSL event per file
     "decision":                300,
     "repo-status":             250,
     "repo-status-positional":  250,
@@ -38,7 +38,7 @@ def classify(path: Path, features_root: Path) -> str | None:
     """Return the artifact type for paths we lint; None otherwise.
 
     Returned types map 1:1 to BUDGETS. Compact formats are distinguished from
-    YAML by a suffix: `log-dsl` (rolling .dsl file), `repo-status-positional`
+    YAML by a suffix: `log-dsl` (one event per .dsl file), `repo-status-positional`
     (one .positional line per file). Contracts (.dsl) have unlimited budget so
     they're not classified.
     """
@@ -52,7 +52,7 @@ def classify(path: Path, features_root: Path) -> str | None:
         return None
     bucket = parts[1]
     if bucket == "log":
-        if rel.name == "log.dsl":
+        if rel.suffix == ".dsl":
             return "log-dsl"
         if rel.suffix == ".md":
             return "log"
@@ -106,13 +106,6 @@ def extract_from_field(frontmatter: str) -> str | None:
 # DSL helpers — minimal parsing, just enough to extract the body for budget
 # checks. The renderer's parsers.mjs is the authoritative format spec; this
 # only needs to count words.
-
-def last_nonblank_line(text: str) -> str:
-    for line in reversed(text.splitlines()):
-        if line.strip():
-            return line
-    return ""
-
 
 def dsl_log_line_from(line: str) -> str | None:
     """Extract the `from` field of a DSL log line, or None if unparseable."""
@@ -208,11 +201,11 @@ def main() -> int:
 
     # Per-format body extraction + opt-out + identity check.
     if artifact == "log-dsl":
-        # Lint the last appended line only (the most-recently-written event).
-        last_line = last_nonblank_line(content)
-        opt_out = "# allow-oversize:" in last_line
-        words = dsl_log_body_words(last_line)
-        from_field = dsl_log_line_from(last_line)
+        # One event per file — use the single non-blank line.
+        line = first_nonblank_line(content)
+        opt_out = "# allow-oversize:" in line
+        words = dsl_log_body_words(line)
+        from_field = dsl_log_line_from(line)
         identity_text = from_field or ""
         check_identity_in_agents_md = bool(from_field)
     elif artifact == "repo-status-positional":

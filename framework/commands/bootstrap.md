@@ -13,9 +13,8 @@ Bootstrap new feature **$ARGUMENTS**.
    ```bash
    mkdir -p features/$ARGUMENTS/{overview,repos,contracts,decisions,digest,log,tickets,cursors,orchestrator}
    cp framework/templates/MISSION.md features/$ARGUMENTS/MISSION.md
-   touch features/$ARGUMENTS/log/log.dsl
    ```
-   The rolling `log/log.dsl` file is created empty — agents append a line per event.
+   `log/` starts empty — each event is written as its own file `<iso>-<repo>-<slug>.dsl` (single DSL line).
 
 2. Fill `features/$ARGUMENTS/MISSION.md` — Goal / Scope in+out / Repos / Success criteria. Ask the user for anything unclear. This is the one file humans edit by hand.
 

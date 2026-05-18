@@ -14,13 +14,13 @@ Read `framework/orchestrator/brief.md`. For `/refresh` you write as `orchestrato
 
 ### 2. Read inputs (per the brief)
 
-**Format note (see README §7):** Inputs span DSL (`log/log.dsl`, `repos/<repo>/*.positional`, `contracts/<api>/*.dsl`) and YAML (`MISSION.md`, `orchestrator/`, `digest/`, `decisions/`, legacy `.md` siblings of any of the above). Read both shapes; filter by the same fields.
+**Format note (see README §7):** Inputs span DSL (`log/*.dsl`, `repos/<repo>/*.positional`, `contracts/<api>/*.dsl`) and YAML (`MISSION.md`, `orchestrator/`, `digest/`, `decisions/`, legacy `.md` siblings of any of the above). Read both shapes; filter by the same fields.
 
 1. `features/$ARGUMENTS/MISSION.md` (YAML).
 2. Previous snapshot — `features/$ARGUMENTS/orchestrator/` latest file (YAML).
 3. Latest digest per repo — `features/$ARGUMENTS/digest/` (YAML).
 4. Latest status per repo — `features/$ARGUMENTS/repos/<repo>/` latest `.positional` (fallback: legacy `.md`).
-5. Log entries newer than previous snapshot — lines in `features/$ARGUMENTS/log/log.dsl` (newer than snapshot `at:`) **plus** legacy `log/*.md`. Treat retired-by-`[pv]` lines as out of scope.
+5. Log entries newer than previous snapshot — `features/$ARGUMENTS/log/*.dsl` (newer than snapshot `at:`) **plus** legacy `log/*.md`. Treat retired-by-`[pv]` entries as out of scope.
 6. Decisions newer than previous snapshot — `features/$ARGUMENTS/decisions/` (YAML).
 7. Contracts — only if a digest mentions a version change. `.dsl` or legacy `.md`.
 

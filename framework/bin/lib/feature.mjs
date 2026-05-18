@@ -17,7 +17,7 @@ import {
 } from './fs-utils.mjs';
 import { parseFrontmatter, extractSection, extractBullets } from './markdown.mjs';
 import {
-  parseDslLogFile,
+  parseDslLogEntry,
   parseDslContract,
   parsePositionalRepoStatus,
 } from './parsers.mjs';
@@ -112,8 +112,8 @@ async function loadSubfolderedItems(folderPath) {
 }
 
 // Multi-format loader for `log/`. Reads:
+//   - DSL files (one event per file, `<iso>-<repo>-<slug>.dsl`).
 //   - Legacy md+YAML files (one item per file).
-//   - Rolling `log.dsl` (one item per non-empty line).
 async function loadLogFolder(folderPath) {
   const filenames = await listArtefactFilenames(folderPath);
   const items = [];
@@ -122,8 +122,10 @@ async function loadLogFolder(folderPath) {
     const filePath = join(folderPath, filename);
     if (filename.endsWith('.dsl')) {
       const text = await readFile(filePath, 'utf8');
-      const parsed = parseDslLogFile(text);
-      items.push(...parsed);
+      const { fm, body } = parseDslLogEntry(text);
+      if (!fm) continue;
+      const ts = fm.at || timestampFromFilename(filename);
+      items.push({ filename, fm, body, ts });
       continue;
     }
     if (!filename.endsWith('.md')) continue;

@@ -157,7 +157,7 @@ Files under `log/`, `digest/`, `decisions/`, `contracts/`, `repos/<self>/`, `cur
 
    | Artifact            | Budget         | Format (see [`README.md` §7](./README.md#7-artefact-formats)) |
    |---------------------|----------------|----------------------------------------------|
-   | `log/` entries      | 50–200 words   | DSL line in `log/log.dsl` (one append per event) |
+   | `log/` entries      | 50–200 words   | One `.dsl` file per event in `log/` (single DSL line) |
    | `decisions/` ADRs   | 100–300 words  | YAML + body (md+YAML)                       |
    | `contracts/<api>/`  | unlimited (schema is schema; no commentary outside the schema) | DSL line per version |
    | `repos/<self>/`     | 100–250 words  | Positional record line per file              |

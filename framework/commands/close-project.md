@@ -8,9 +8,9 @@ Close feature **$ARGUMENTS**.
 
 `$ARGUMENTS` shape: `<slug> [done|paused] <reason>`. Default state is `done`.
 
-**Format note (see README §7):** MISSION and closing digest are YAML+body — no DSL writes. But the pre-check spans both DSL (`log/log.dsl`) and legacy `log/*.md` when sweeping for unresolved items.
+**Format note (see README §7):** MISSION and closing digest are YAML+body — no DSL writes. But the pre-check spans both DSL (`log/*.dsl`) and legacy `log/*.md` when sweeping for unresolved items.
 
-**Pre-check:** read the latest orchestrator snapshot (or `MISSION` + latest digest if no snapshot). Surface any unresolved "Open for the human" items or unmerged work to the user; ask whether to proceed before writing. Unmerged-work sweep should include open asks in `log/log.dsl` (kind `[q]` / `[bl]`) and legacy `log/*.md` (`kind: ask` / `kind: blocker`).
+**Pre-check:** read the latest orchestrator snapshot (or `MISSION` + latest digest if no snapshot). Surface any unresolved "Open for the human" items or unmerged work to the user; ask whether to proceed before writing. Unmerged-work sweep should include open asks in `log/*.dsl` (kind `[q]` / `[bl]`) and legacy `log/*.md` (`kind: ask` / `kind: blocker`).
 
 **Two writes, in order.**
 
