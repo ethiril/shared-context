@@ -5,7 +5,7 @@ argument-hint: <feature-slug>
 
 You are performing a full audit of shared-context feature: **$ARGUMENTS**.
 
-Follow the Full audit protocol from your shared-context folder's `framework/README.md` §4.1. (Your repo's `CLAUDE.md` declares where shared-context lives.)
+Follow the Full audit protocol from your shared-context folder's `framework/README.md` §2 → Full audit. (Your repo's `CLAUDE.md` declares where shared-context lives.)
 
 This is the only resume mode that:
 - Reads every log/decision/contract version newer than your cursor regardless of `to:` filters.

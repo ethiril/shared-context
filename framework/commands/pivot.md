@@ -7,7 +7,7 @@ You are pivoting shared-context feature. Argument: **$ARGUMENTS**.
 
 The first whitespace-separated token in $ARGUMENTS is the feature slug; the rest is the reason.
 
-Follow the pivot protocol from your shared-context folder's `framework/README.md` §4.2. (Your repo's `CLAUDE.md` declares where shared-context lives.)
+Pivot writes are listed in your shared-context folder's `framework/README.md` §5 (row "Direction is changing"); this command walks them through with interactive prompts. (Your repo's `CLAUDE.md` declares where shared-context lives.)
 
 A pivot has 3 mandatory writes (log + tombstones + digest) and 1 conditional write (replacement-placeholder decisions, when the user asks for them). The interactive prompts below keep the human in the loop on what gets retired and what (if anything) replaces it.
 
