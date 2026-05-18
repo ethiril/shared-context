@@ -3,85 +3,80 @@ description: Check in on a feature — read incoming log entries directed at you
 argument-hint: <feature-slug>
 ---
 
-You are checking in on shared-context feature: **$ARGUMENTS**.
+Check in on feature **$ARGUMENTS** — process inbound log entries.
 
-The user is bringing your attention to this feature because something is waiting for you — typically a log entry from another repo (an ask, an answer to one of your asks, a contract-change notification, an fyi, a blocker, or a pivot).
+**Not a fresh-session resume.** Get to the inbox quickly.
 
-This is **not** a fresh-session resume. Don't re-read the whole protocol or every digest. Get to the inbox quickly.
+### 1. Quick orient (skip if already loaded)
 
-## Steps
+- `features/$ARGUMENTS/MISSION.md`
+- `features/$ARGUMENTS/orchestrator/` latest file
 
-### 1. Quick orient (skip if already loaded this session)
+### 2. Find read cursor
 
-- `features/$ARGUMENTS/MISSION.md` — feature identity.
-- `features/$ARGUMENTS/orchestrator/` latest file — current state.
+`features/$ARGUMENTS/cursors/<your-repo>/current.md` → `last_log_read`. Legacy fallback: latest timestamped file in that folder. No cursor at all: treat everything newer than the latest snapshot's `at:` as new.
 
-If you've already done these earlier in this session, skip them.
+### 3. Pull inbox
 
-### 2. Find your read cursor
+Read `features/$ARGUMENTS/log/log.dsl`. Each non-empty line is one event (`from > to [kind] @at: summary | …`). An event is in your inbox where **all** hold:
 
-`features/$ARGUMENTS/cursors/<your-repo>/current.md` — note `last_log_read`. If `current.md` doesn't exist, fall back to the latest timestamped file in that folder (legacy). If no cursor at all, treat anything newer than the latest orchestrator snapshot's `at:` as new.
+- `at` timestamp newer than `last_log_read` (or snapshot `at`).
+- `to` includes your repo OR is `all`.
+- Not retired by a later `[pv]` line's `supersedes: all-prior` or explicit list.
 
-### 3. Pull your inbox
+If a `[pv]` (pivot) line is in the list, read it **first** — may invalidate the rest.
 
-Read every file in `features/$ARGUMENTS/log/` where all of these hold:
-- Filename's timestamp is newer than your `last_log_read` (or the snapshot, per step 2).
-- `to:` frontmatter includes your repo, OR includes `[all]`.
-- Frontmatter does NOT have `status: superseded`, and no sibling `*.superseded.md` tombstone exists.
-
-If a `kind: pivot` is in the list, read it **first** — it may invalidate the rest.
+Legacy md+YAML files under `log/` are still read for backwards compat — apply the same filters (frontmatter `to`, filename timestamp).
 
 ### 4. Report — don't write yet
 
-Output a compact table to the user. Sort blocking items (`ask`, `blocker`, `pivot`) to the top; conversational items (`question`, `fyi`) to the bottom.
+Compact table. Block-worthy kinds (`ask`, `blocker`, `pivot`, `contract-change`) sort to top; conversational (`question`, `fyi`) to bottom.
 
 ```
-| # | kind            | block? | from              | summary                                | suggested response       |
-|---|-----------------|--------|-------------------|----------------------------------------|--------------------------|
-| 1 | ask             | yes    | subscriptions-gw  | <summary>                              | answer (substantive)     |
-| 2 | contract-change | yes    | app-gateway       | <summary>                              | ack + update consumer    |
-| 3 | question        | no     | app-gateway       | <summary>                              | answer when convenient   |
-| 4 | fyi             | no     | app-gateway       | <summary>                              | ack only                 |
+| # | kind            | block? | from              | summary                | suggested response       |
+|---|-----------------|--------|-------------------|------------------------|--------------------------|
+| 1 | ask             | yes    | subscriptions-gw  | <summary>              | answer (substantive)     |
+| 2 | contract-change | yes    | app-gateway       | <summary>              | ack + update consumer    |
+| 3 | question        | no     | app-gateway       | <summary>              | answer when convenient   |
+| 4 | fyi             | no     | app-gateway       | <summary>              | ack only                 |
 ```
 
-Use the `summary:` frontmatter when available; fall back to the first sentence of the body. The `block?` column comes from the kind: `ask | blocker | pivot | contract-change` → yes; `question | fyi | change | answer | ticket-update` → no.
+Summary from the DSL line's `summary` section (or YAML `summary:` for legacy entries). `block?` from kind: `q`(ask) / `bl`(blocker) / `pv`(pivot) / `cc`(contract-change) → yes; `q`(question, judged by tone) / `fy` / `ch` / `a` / `tk` → no.
 
-### 5. Ask for confirmation (tightly)
+### 5. Confirm tightly
 
-**If 1–4 inbox items:** call `AskUserQuestion` once with one question per inbox row. Each question header is the kind + sender (e.g. `"ask from subs-gateway"`). Options (≤4 per question, recommended first):
+**1–4 inbox items:** call `AskUserQuestion` once with one question per row. Header: kind + sender (e.g. `"ask from subs-gateway"`). Options (≤ 4, recommended first):
 
-- **Answer** — write a substantive `kind: answer`. (Recommended for `ask` / `question` / `blocker`.)
-- **Ack** — short `kind: ack` confirming you've absorbed it. (Recommended for `fyi` / `change` you're not touching.)
-- **Change** — make the code change and write `kind: change` referencing the inbound. (Recommended when a `change` or `contract-change` affects your code.)
-- **Skip** — defer; not writing anything this turn. (Use for non-blocking `question`s when heads-down.)
+- **Answer** — substantive `[a]` (answer) line. *Recommended for* `q` (ask) / `q` (question) / `bl` (blocker).
+- **Ack** — short `[ak]` line confirming absorption. *Recommended for* `fy` / `ch` you're not touching.
+- **Change** — make the code change, write `[ch]` line referencing the inbound. *Recommended when* a `ch` / `cc` affects your code.
+- **Skip** — defer; nothing written this turn. *Use for* non-blocking `q` (question)s when heads-down.
 
-Set the **first** option to the recommended response per kind, append " (Recommended)" to its label.
+First option's label gets " (Recommended)" appended per kind.
 
-**If ≥5 inbox items:** skip `AskUserQuestion` (it caps at 4 questions). Fall back to a one-line per-row text proposal and a single "go ahead / change anything?" prompt.
+**≥ 5 items:** skip `AskUserQuestion` (caps at 4). One-line proposal per row, then a single "go ahead?" prompt.
 
-**Wait for the user's answers before writing anything.** The user may say "Other → redirect this to X" for any row — honour that.
+**Wait for answers before writing.** "Other → redirect to X" overrides — honour it.
 
-### 6. Write the responses
+### 6. Write responses
 
-For each option the user selected:
+Append one line per response to `features/$ARGUMENTS/log/log.dsl`:
 
-- **Answer** → write a `kind: answer` log entry. Frontmatter: `from: <self>`, `to: [<inbound's from>]`, `refs: [log/<inbound-filename>]`, `summary: <one sentence>`. Body: the actual answer (50–200 words; the lint hook will warn if longer).
-- **Ack** → write a `kind: ack` log entry. Same frontmatter shape. Body: 1–3 sentences confirming you've absorbed it; flag anything that needs follow-up.
-- **Change** → make the code change first, then write a `kind: change` (or `kind: contract-change` if you're publishing a new contract version) referencing the inbound.
-- **Skip** → don't write anything for that row. The cursor write at step 7 will still advance `last_log_read` past the inbound, marking it as seen.
+- **Answer** → kind `[a]`. Shape: `<self> > <inbound-from> [a] @<ISO>: <one-sentence summary> | refs: <inbound-event-timestamp> | <body 50–200 words>`.
+- **Ack** → kind `[ak]`. Same shape; body 1–3 sentences; flag follow-ups.
+- **Change** → make the code change first, then `[ch]` (or `[cc]` if publishing a new contract version) referencing the inbound.
+- **Skip** → don't write; step 7 still advances cursor past the inbound.
 
 Special kinds:
-- **ticket / ticket-update** → if you're the assignee, read `tickets/<slug>.md`, plan your work, then `Ack` with a one-line note. Don't restate the ticket content in the ack.
-- **pivot** → you've already absorbed it at step 3. The right follow-up is `Change` describing what you're abandoning vs. continuing, and (if your code state shifted materially) a new status under `repos/<self>/`. The Ack option is wrong for pivots; surface that to the user if they pick it.
+- **ticket / ticket-update** — if you're the assignee, read `tickets/<slug>.md`, plan work, then **Ack** (`[ak]`) with a one-line note (don't restate ticket).
+- **pivot** — already absorbed in step 3. Right follow-up is **Change** (`[ch]`, what you're abandoning vs. continuing) plus a fresh `repos/<self>/<iso>.positional` if code state shifted. Ack is wrong for pivots — flag if user picked it.
 
-### 7. Update your cursor
+### 7. Update cursor
 
-After writing responses, overwrite `cursors/<self>/current.md` setting `last_log_read` to the latest log filename you processed (whether you answered it or skipped). This keeps the next `/check-in` cheap.
+Overwrite `cursors/<self>/current.md`: `last_log_read` = latest log filename processed (whether answered or skipped). Keeps next `/check-in` cheap.
 
 ### 8. Wrap up
 
-In one sentence, tell the user what you wrote and whether anything you saw deserves a fresh status snapshot (`repos/<self>/`) or a fresh digest. Don't write the digest yourself — that's `/handoff` territory.
+One sentence: what you wrote and whether anything deserves a fresh `repos/<self>/` status or a fresh digest. Don't write the digest — that's `/handoff`.
 
-## Soft budget
-
-≤ 5k tokens of reads. The inbox should be small; if it isn't, you may have skipped a `/check-in` or `/handoff` cycle and should consider whether `/catch-up` is more appropriate.
+**Budget:** ≤ 5k tokens. If inbox is bigger, consider whether `/catch-up` fits better.

@@ -30,15 +30,17 @@ If any of these are missing the system doesn't work. Slash commands won't appear
 
 Slash commands (`/resume`, `/refresh`, `/handoff`, etc.) need to live in `~/.claude/commands/` so Claude Code picks them up in every CWD.
 
-The bundled script is the safe path — dry-run by default, refuses to overwrite anything it can't reconcile:
+The bundled script drops you into an interactive menu — nothing on disk changes until you choose `apply` or `force`:
 
 ```bash
-./framework/bin/setup-claude.sh             # dry-run; prints what would change
-./framework/bin/setup-claude.sh --apply     # create or update symlinks
-./framework/bin/setup-claude.sh --apply --force  # also replace pre-existing copies that differ (writes a .bak first)
+./framework/bin/setup-claude.sh
 ```
 
+First-run flow: type `s` (status) to see per-file state, `p` (plan) for target paths and notes, then `a` (apply) to create the symlinks. If pre-existing copies differ from source, `f` (force) replaces them and writes a `.bak` for each first. Other shortcuts: `d` (diff), `r` (refresh), `h` (help), `q` (quit).
+
 It only touches files whose names match `framework/commands/*.md`; any other files already in `~/.claude/commands/` are left alone.
+
+Optional env overrides: `CLAUDE_COMMANDS_DIR` (default `~/.claude/commands`), `SHARED_CONTEXT_ROOT` (default: auto-detected from the script's location), `NO_COLOR=1` to disable colors.
 
 Or wire them by hand:
 

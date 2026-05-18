@@ -22,6 +22,23 @@ export async function listMarkdownFilenames(parentPath) {
     .sort();
 }
 
+// Lists files of any artefact-supported extension (md, dsl, positional).
+// Used by folders that can mix legacy YAML and new compact-format artefacts
+// (log, repos, contracts). Filenames are returned sorted; downstream callers
+// dispatch on extension to pick a parser.
+const ARTEFACT_EXTENSIONS = ['.md', '.dsl', '.positional'];
+
+export async function listArtefactFilenames(parentPath) {
+  if (!existsSync(parentPath)) return [];
+  const entries = await readdir(parentPath, { withFileTypes: true });
+  return entries
+    .filter(entry => entry.isFile()
+      && !entry.name.startsWith('.')
+      && ARTEFACT_EXTENSIONS.some(ext => entry.name.endsWith(ext)))
+    .map(entry => entry.name)
+    .sort();
+}
+
 export async function latestMarkdownFilename(parentPath) {
   const filenames = await listMarkdownFilenames(parentPath);
   return filenames.length ? filenames[filenames.length - 1] : null;

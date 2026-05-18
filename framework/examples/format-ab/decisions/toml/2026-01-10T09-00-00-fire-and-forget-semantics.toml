@@ -1,0 +1,32 @@
+type = "decision"
+title = "Fire-and-forget enqueue semantics for v1"
+author = "api"
+at = "2026-01-10T09:00:00Z"
+summary = "API does not learn about send success or failure in v1; the queue is the contract boundary."
+status = "accepted"
+affects = ["welcome-email-job"]
+
+rule = "API never reads job status; successful enqueue is the API's only contract obligation. Send failures are observable only via worker logs and SES dashboards."
+
+why = [
+  "v1 has no retry policy — a failure wouldn't trigger any API-side behaviour anyway",
+  "Coupling signup latency to SES availability is a poor trade for telemetry already available from worker",
+  "Keeps API responsibility small; worker evolves independently (retries, batching, multi-template) without API release",
+]
+
+consequences = [
+  "Worker is source of truth for \"did the email send\"",
+  "Worker outage stalls pipeline silently from API's view — operator alerting on queue depth + SES errors is the signal",
+]
+
+[[alternatives_rejected]]
+option = "synchronous send from API"
+reason = "SES p99 well above signup-latency budget"
+
+[[alternatives_rejected]]
+option = "job-status callback to API"
+reason = "no consumer for v1; only matters when retries land"
+
+[[alternatives_rejected]]
+option = "outbox pattern"
+reason = "overkill until we have a transactional concern"

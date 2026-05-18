@@ -1,0 +1,15 @@
+{
+  "t": "type", "k": "kind", "f": "from", "a": "author",
+  "at": "at", "to": "to", "s": "summary", "r": "refs", "b": "body",
+  "ti": "title", "st": "status", "af": "affects",
+  "ru": "rule", "w": "why", "ar": "alternatives_rejected", "co": "consequences",
+  "n": "name", "v": "version", "cs": "consumers", "br": "breaking",
+  "q": "queue", "pf": "payload_fields", "ex": "expectations",
+  "rp": "repo", "g": "current_goal", "d": "done", "nx": "next", "bk": "blocked_on",
+  "c": "contracts_in_play", "oq": "open_questions",
+  "pr": "per_repo", "ca": "contracts_active", "dl": "decisions_live",
+  "oc": "open_cross_repo", "sb": "shipped_since_bootstrap", "wl": "where_to_look",
+  "h": "headline", "wrs": "where_each_repo_stands",
+  "ssl": "shipped_since_last", "dm": "decisions_made",
+  "ofh": "open_for_human", "nu": "next_up"
+}
