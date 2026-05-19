@@ -332,8 +332,12 @@ function deepLinkScript({ withTabs = false, withLazyLoad = false } = {}) {
         target.dataset.loaded = 'ok';
         attachFragmentHandlers(target);
       } catch (e) {
+        // Only offer the standalone-page link from the root dashboard (which
+        // has lazy-loaded feature stubs). On the standalone page itself the
+        // relative path would double up to features/<slug>/features/<slug>/…
+        const onRoot = !!document.querySelector('details.feature[data-fragment-url]');
         const slug = details.closest('details[data-slug]')?.dataset.slug;
-        const standalone = slug ? 'features/' + encodeURIComponent(slug) + '/dashboard.html' : null;
+        const standalone = onRoot && slug ? 'features/' + encodeURIComponent(slug) + '/dashboard.html' : null;
         const standaloneLink = standalone ? ' or open the <a href="' + standalone + '">standalone page</a>' : '';
         target.innerHTML = '<div class="fragment-placeholder error">Couldn\\'t fetch <code>' + url + '</code> (' + e.message + '). If you opened this via <code>file://</code>, the browser may be blocking it — try serving the directory (<code>python3 -m http.server</code>)' + standaloneLink + '.</div>';
         target.dataset.loaded = 'error';
