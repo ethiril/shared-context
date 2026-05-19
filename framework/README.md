@@ -16,31 +16,45 @@ Multi-repo coordination via timestamped, append-only files under `features/<slug
 
 ## 2. Resume the feature (≤ 5k tokens before real work)
 
-### Quick resume (`/resume <slug>`)
+### First-time onboarding (`/join <slug>`)
 
-Read in this order, stop when you have enough:
+Run once per repo per feature. Hard-refuses if `repos/<self>/` already has anything. Reads MISSION + latest snapshot to orient, then writes:
+
+1. `features/<slug>/repos/<self>/<iso>.positional` — bootstrap-state positional row (summary + current_goal filled; empty lists; `[]` JSON).
+2. `features/<slug>/log/<iso>-<self>-join.dsl` — single `[fy]` line announcing presence (owns `<area>`; ask about `<topics>`).
+3. `features/<slug>/cursors/<self>/current.md` — fresh cursor; `last_log_read` = your own join filename.
+
+After joining, switch to `/resume` for ongoing work.
+
+### Resume (`/resume <slug>`)
+
+The default mid-feature command. Light state-load → apply pivots → watch for in-session pivot triggers → pull inbox → **auto-ack `[fy]` and `[ak]` without asking** → `AskUserQuestion` per substantive item (`[q]`/`[bl]`/`[cc]`/`[ch]`/`[tk]`) → write responses → update cursor. Read in this order, stop when you have enough:
 
 1. `features/<slug>/MISSION.md` — feature identity.
 2. `features/<slug>/orchestrator/` — newest file. **Treat as having absorbed everything older than its `at:`.** This is your checkpoint.
-3. `features/<slug>/log/` — entries with `kind: pivot` newer than the snapshot.
-4. `features/<slug>/repos/<self>/` — newest file.
-5. `features/<slug>/log/` — entries with `to:` containing your identity, newer than the snapshot.
+3. `features/<slug>/cursors/<self>/current.md` — your bookmark.
+4. `features/<slug>/repos/<self>/` — newest file. Your task brief.
+5. `features/<slug>/log/*.dsl` — entries with kind `[pv]` newer than the checkpoint. **Apply pivots before anything else.**
+6. `features/<slug>/log/*.dsl` — entries with `to` containing your identity (or `all`) newer than `cursor.last_log_read`. Auto-ack `[fy]`/`[ak]`; surface the rest.
 
 Fall back to newest `digest/` if no orchestrator snapshot exists.
 
 ### Catch up (`/catch-up <slug>`)
 
-Quick resume, then:
+The cold-start. Lead with `_index.md` (auto-generated skim layer) and drill into referenced files only as needed:
 
-6. `features/<slug>/_index.md` — the generated skim layer.
-7. `features/<slug>/cursors/<self>/current.md` — your bookmark.
-8. `features/<slug>/contracts/<api>/` — newest per API you'll touch (skip `*.superseded.md`).
-9. `features/<slug>/decisions/` — newer than cursor's `last_decision_read`, status `accepted`.
-10. `features/<slug>/log/` — newer than max(snapshot's `at:`, cursor's `last_log_read`).
+1. `features/<slug>/_index.md` — mission status + latest checkpoint + last 4 logs + recent decisions + latest positional per repo. ~80% of catch-up needs in ~1.5K bytes.
+2. `features/<slug>/MISSION.md` — feature identity (skip if loaded this session).
+3. Latest file in `features/<slug>/orchestrator/` — full checkpoint snapshot.
+4. `features/<slug>/cursors/<self>/current.md` — your bookmark.
+5. `features/<slug>/repos/<self>/` — your latest positional.
+6. Drill down on items the index flagged: log entries `to:` you newer than `cursor.last_log_read`, contracts you'll touch, accepted decisions newer than `cursor.last_decision_read`. Don't read every ADR by default — open only what's relevant.
+
+Reports state + next action; doesn't write inbox responses (use `/resume` for that).
 
 ### Full audit (`/audit <slug>`)
 
-Catch up + every log/decision/contract since cursor regardless of `to:` filter, **including superseded and `.skipped.md`**. Ignores the 5k budget. Use sparingly.
+Catch up + every log/decision/contract since cursor regardless of `to:` filter, **including superseded entries, `.skipped.md`, and DSL entries retired by a later `[pv]`'s `supersedes:`**. Ignores the 5k budget. Use sparingly.
 
 ### Session end (`/handoff <slug>`)
 
@@ -64,7 +78,6 @@ features/<slug>/
 ├── MISSION.md          static; human-authored at bootstrap, append-only `## Amendments` for scope changes
 ├── _index.md           generated; do not write
 ├── orchestrator/       orchestrator-only; you never write here
-├── overview/           feature goal/scope snapshots
 ├── repos/<repo>/       per-repo status; only the owning repo writes its own folder
 ├── contracts/<api>/    versioned API surfaces; written by the API's owning repo
 ├── decisions/          ADRs (any repo)
@@ -76,7 +89,6 @@ features/<slug>/
 
 | Folder              | Who writes                                | When                                                            |
 |---------------------|-------------------------------------------|-----------------------------------------------------------------|
-| `overview/`         | Whoever scoped the feature                | At creation; rare amendments                                    |
 | `repos/<self>/`     | Only the owning repo                      | When your repo's status changes                                 |
 | `repos/<other>/`    | **Never.** Use `log/` with `to:` instead. | —                                                               |
 | `contracts/<api>/`  | The repo that owns the API surface        | On every API change (new version)                               |
@@ -93,15 +105,15 @@ features/<slug>/
 
 | Command                                | When                                              | What it does                                                                                              |
 |----------------------------------------|---------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
-| `/resume <slug>`                       | First message after `/clear`                      | MISSION + latest snapshot + your inbox (~5k tokens)                                                       |
-| `/catch-up <slug>`                     | New session or back after a break                 | `/resume` + `_index.md` + recent decisions/contracts                                                      |
-| `/check-in <slug>`                     | Mid-session: someone just sent you something      | Reads only your inbox; reports a table; **pauses for go-ahead** before acking                             |
-| `/audit <slug>`                        | Verify history; something looks wrong             | Full read incl. superseded. Ignores the 5k budget                                                          |
-| `/handoff <slug>`                      | Before `/clear`                                   | Writes digest + cursor                                                                                     |
-| `/pivot <slug> <reason>`               | Direction changing                                | `kind: pivot` log + tombstones for retired items + fresh digest                                            |
-| `/refresh <slug>`                      | Update the human dashboard now                    | Rebuilds orchestrator snapshot + `dashboard.html` + `_index.md`. May ask tight yes/no questions inline.   |
-| `/bootstrap <slug>`                    | Starting a new feature                            | Scaffolds folders, copies `templates/MISSION.md`, prompts for goal/scope                                  |
-| `/close-project <slug> [done\|paused]` | Wrapping up                                       | Flips `MISSION.md` status + closing digest. Dashboard archives the feature.                                |
+| `/bootstrap <slug>`                    | Starting a new feature                            | Scaffolds folders, copies `templates/MISSION.md`, prompts for goal/scope, writes founding repo's first positional status + `[fy]` announcement |
+| `/join <slug>`                         | First time a new repo participates in a feature   | Hard-refuses if already joined. Writes the joining repo's first positional status + `[fy]` announcement + cursor                  |
+| `/resume <slug>`                       | Default mid-feature command (after `/clear`, between work sessions, or to clear inbox) | Light state-load → apply pivots → pull inbox → auto-ack `[fy]`/`[ak]` → ask per substantive item → write responses → update cursor |
+| `/catch-up <slug>`                     | Cold start after a long break                     | Heavier read than `/resume`: adds `_index.md`, recent decisions, contracts. Reports state; doesn't write inbox responses          |
+| `/audit <slug>`                        | Verify history; something looks wrong             | Full read incl. superseded + DSL entries retired by `[pv]`'s `supersedes:`. Ignores the 5k budget                                  |
+| `/handoff <slug>`                      | Before `/clear`                                   | Writes digest (conditional) + cursor                                                                                              |
+| `/pivot <slug> <reason>`               | Direction changing                                | Per-event `[pv]` DSL file + tombstones for retired items + fresh digest. Propose this proactively if a session reveals a pivot trigger |
+| `/refresh <slug>`                      | Update the human dashboard now                    | Rebuilds orchestrator snapshot + `dashboard.html` + `_index.md`. May ask tight yes/no questions inline.                            |
+| `/close-project <slug> [done\|paused]` | Wrapping up                                       | Flips `MISSION.md` status + closing digest. Dashboard archives the feature.                                                       |
 
 ---
 
@@ -154,6 +166,22 @@ Compact-format artefacts (see §7):
 ---
 
 ## 7. Artefact formats
+
+**`FRAMEWORK_VERSION = 2`** — bumped whenever this section's grammars change in a way that requires agents to re-read. Agents that have absorbed v2 (their repo's `.claude/settings.local.json` carries `"shared_context_framework_version": 2`) can skip re-reading §7 on session start. `/bootstrap` and `/join` write this field as part of their permissions step.
+
+**Bump rule (any one triggers a bump):**
+
+- Changing an existing format's grammar (e.g. positional schema field order/count, DSL line grammar, YAML frontmatter shape).
+- Introducing a **new compact format** (an additional `.dsl` / `.positional` flavour). Agents that only know v2 wouldn't parse it correctly.
+- Renaming or repurposing an existing kind code in the log DSL (e.g. if `[ch]` meant something different).
+
+**Doesn't require a bump:**
+
+- Adding a new optional YAML frontmatter field with a default (agents that don't expect it just ignore it).
+- Adding a new log kind code that doesn't replace an existing one (agents that don't recognise it fall through to legacy parse).
+- Documentation-only edits to §7 that don't change parser behaviour.
+
+Bumps require a migration note in the bump itself (`v2 → v3: <what changed; what agents need to know>`).
 
 `summary:` is **required** on every agent-targeted file. One sentence, ≤ 30 words. Feeds `_index.md`.
 
@@ -228,6 +256,7 @@ repo|at|summary|current_goal|done|next|blocked_on|contracts_in_play|open_questio
 
 - `done`, `next`, `blocked_on` are `~`-separated string lists.
 - `contracts_in_play` and `open_questions` are **inline JSON** (the only nested fields — JSON keeps them parseable without inventing a sub-grammar).
+- **`blocked_on` entries auto-surface on the dashboard's "Needs your attention" section** — no `/refresh` needed. Use it for cross-repo blockers ("ask to test-repo-2 unanswered since @2026-05-19T09:00Z", "deploy slot owed by infrastructure"). Keep each entry one short phrase; one entry per concrete blocker.
 
 Example:
 
@@ -347,17 +376,9 @@ refs: [contracts/vouchers-api/2026-05-15T15-56-43-app-gateway-v1.0.1.md]
 
 Body is as long as the spec needs (not linted). Logs reference it via `refs: [tickets/<slug>.md]`. Don't paste ticket content into log bodies.
 
-### overview
+### overview (deprecated)
 
-```yaml
----
-type: overview
-author: <repo>
-at: 2026-05-15T14:00:00Z
-status: active | paused | done
-summary: One sentence — the feature in plain language.
----
-```
+Pre-2026-05-19 features may have an `overview/` folder with YAML+body files. The renderer still parses them; agents don't write new ones. MISSION.md + its `## Amendments` section is the single source of feature identity.
 
 ---
 

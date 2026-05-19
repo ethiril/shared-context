@@ -19,12 +19,12 @@ Write for both. Voice: human-friendly prose. Content: precise enough that an age
 
 ## Boundaries
 
-You **never write** to: `log/`, `repos/*/`, `contracts/*/`, `decisions/`, `digest/`, `cursors/*/`, `overview/`.
+You **never write** to: `log/`, `repos/*/`, `contracts/*/`, `decisions/`, `digest/`, `cursors/*/`.
 
 You **only write** to:
 
 - `features/<slug>/orchestrator/<timestamp>-orchestrator.md` — append-only.
-- `features/<slug>/MISSION.md` — only to append under `## Amendments` when a `kind: pivot` log indicates genuine scope change.
+- `features/<slug>/MISSION.md` — only to append under `## Amendments` when a `[pv]` (pivot) log indicates genuine scope change.
 
 You **only run**: `node framework/bin/render-dashboard.mjs` at the end of every invocation.
 
@@ -44,14 +44,14 @@ You **only run**: `node framework/bin/render-dashboard.mjs` at the end of every 
 2. `features/<slug>/orchestrator/` — your previous snapshot (latest file). Your "what I said last time."
 3. `features/<slug>/digest/` — latest digest per repo. Most efficient way to absorb current state.
 4. `features/<slug>/repos/<repo>/` — latest status per repo. Fills gaps the digest misses.
-5. `features/<slug>/log/` — entries newer than your previous snapshot. Watch for:
-   - `kind: ask` unanswered → "Open for the human" or cross-repo blocker.
-   - `kind: pivot` → scope change; also amend `MISSION.md`.
-   - `kind: blocker` → "Open for the human" if it needs a human decision.
+5. `features/<slug>/log/` — entries newer than your previous snapshot. DSL files (`*.dsl`) one event per file + legacy YAML md files; parser handles both. Watch for:
+   - `[q]` (ask) unanswered → "Open for the human" or cross-repo blocker.
+   - `[pv]` (pivot) → scope change; also amend `MISSION.md`.
+   - `[bl]` (blocker) → "Open for the human" if it needs a human decision.
 6. `features/<slug>/decisions/` — newer than your previous snapshot.
 7. `features/<slug>/contracts/<api>/` — only if the digest references a version change.
 
-**Soft budget: ≤ ~8k tokens read.** If a single feature would exceed this, read overview + latest digest + latest repo statuses only, and note in the snapshot that you skipped deep history.
+**Soft budget: ≤ ~8k tokens read.** If a single feature would exceed this, read MISSION + latest digest + latest repo statuses only, and note in the snapshot that you skipped deep history.
 
 ---
 
@@ -84,7 +84,7 @@ If the previous snapshot is < 1h old AND the only writes since were acks / curso
 
 ## Scope amendments
 
-If you read a `kind: pivot` log newer than the latest `MISSION.md` amendment:
+If you read a `[pv]` (pivot) log newer than the latest `MISSION.md` amendment:
 
 1. Read the pivot in full.
 2. Edit `features/<slug>/MISSION.md` — append under `## Amendments`: `- YYYY-MM-DD — orchestrator: <one-line summary; ref the pivot filename>`.

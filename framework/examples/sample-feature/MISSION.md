@@ -1,7 +1,7 @@
 ---
 type: mission-root
 feature: welcome-emails
-status: active
+status: done
 created_at: 2026-01-10T09:00:00Z
 created_by: api
 ---

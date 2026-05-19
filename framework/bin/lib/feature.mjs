@@ -348,20 +348,43 @@ export function staleReason(feature, staleDays) {
 
 // Aggregates "Open for the human" bullets across ACTIVE features. Stale or
 // archived features don't surface here — they're not currently in play.
-// Bullets reading "Nothing — we're heads-down." (and variants) are dropped.
+// Two sources, listed in this order on the dashboard:
+//   1. Orchestrator snapshot's "Open for the human" section (rich prose,
+//      updated by /refresh). Bullets reading "Nothing — …" are dropped.
+//   2. Per-repo positional `blocked_on` fields (terse, updated by every
+//      `repos/<self>/<iso>.positional` write — no /refresh needed). This is
+//      how open asks surface without ceremony for cross-repo chattiness.
 export function attentionItems(features, staleDays) {
   const items = [];
   for (const feature of features) {
     if (isStale(feature, staleDays)) continue;
-    const orchestratorBody = feature.orchestrator?.body;
-    if (!orchestratorBody) continue;
 
-    const section = extractSection(orchestratorBody, 'Open for the human');
-    for (const bullet of extractBullets(section)) {
-      // Convention: "Nothing — we're heads-down." (and variants) means the
-      // feature has no human-blocking work. Drop these from the dashboard.
-      if (bullet.toLowerCase().startsWith('nothing')) continue;
-      items.push({ slug: feature.slug, text: bullet });
+    // Source 1: orchestrator snapshot.
+    const orchestratorBody = feature.orchestrator?.body;
+    if (orchestratorBody) {
+      const section = extractSection(orchestratorBody, 'Open for the human');
+      for (const bullet of extractBullets(section)) {
+        // Convention: "Nothing — we're heads-down." (and variants) means the
+        // feature has no human-blocking work. Drop these from the dashboard.
+        if (bullet.toLowerCase().startsWith('nothing')) continue;
+        items.push({ slug: feature.slug, text: bullet });
+      }
+    }
+
+    // Source 2: per-repo positional blocked_on. Each non-empty entry becomes
+    // its own attention item, prefixed with the blocking repo's name.
+    for (const [repo, status] of Object.entries(feature.repoStatuses || {})) {
+      const blockedOn = status?.fm?.blocked_on;
+      if (!Array.isArray(blockedOn)) continue;
+      for (const blocker of blockedOn) {
+        const trimmed = (blocker || '').trim();
+        if (!trimmed) continue;
+        if (trimmed.toLowerCase().startsWith('nothing')) continue;
+        items.push({
+          slug: feature.slug,
+          text: `**${repo}** blocked on: ${trimmed}`,
+        });
+      }
     }
   }
   return items;

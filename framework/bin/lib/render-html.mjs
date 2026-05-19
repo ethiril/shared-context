@@ -156,10 +156,11 @@ ${subfolderBlocks}
 </details>`;
 }
 
-function renderBrowseSection(feature) {
+// Browse-section folder groups, joined as a single string. Caller decides
+// whether to inline this or write it to a separate fragment file.
+function renderBrowseGroups(feature) {
   const browse = feature.browse;
   if (!browse) return '';
-
   const sections = [
     renderFolderGroup(feature.slug, 'orchestrator', browse.orchestrator),
     renderFolderGroup(feature.slug, 'tickets', browse.tickets),
@@ -171,13 +172,34 @@ function renderBrowseSection(feature) {
     renderFolderGroup(feature.slug, 'overview', browse.overview),
     renderSubfolderedGroup(feature.slug, 'cursors', browse.cursors),
   ].filter(Boolean);
+  return sections.join('\n');
+}
 
-  if (!sections.length) return '';
+// Innards of the browse fragment file. Just the folder groups — the
+// wrapping <details> + summary live in renderBrowseStub.
+export function renderBrowseFragment(feature) {
+  return renderBrowseGroups(feature);
+}
 
-  return `<details class="browse-section" id="feature-${escapeHtml(feature.slug)}-browse">
+// Inline stub written into the feature body. Lazily fetches its body from
+// `browse-fragment.html` on first expand (same handler as the feature-stub
+// fragment loader).
+//
+// `basePath` is the URL prefix to reach `features/<slug>/browse-fragment.html`
+// from the *document* the stub will eventually live in. Empty for the
+// standalone page (its document URL is already inside `features/<slug>/`);
+// `features/<slug>/` for the body fragment that gets injected into the root
+// dashboard (whose document URL is the repo root). Empty features get an
+// empty string instead so a feature with no artefacts doesn't show a
+// misleading "Browse history" toggle.
+function renderBrowseStub(feature, basePath) {
+  if (!renderBrowseGroups(feature)) return '';
+  const slug = escapeHtml(feature.slug);
+  const fragmentUrl = `${basePath}browse-fragment.html`;
+  return `<details class="browse-section" id="feature-${slug}-browse" data-fragment-url="${fragmentUrl}">
   <summary><h3>Browse history</h3></summary>
-  <div class="browse-body">
-${sections.join('\n')}
+  <div class="browse-body" data-fragment-target>
+    <div class="fragment-placeholder"><span class="spinner"></span>Loading browse history…</div>
   </div>
 </details>`;
 }
@@ -185,7 +207,13 @@ ${sections.join('\n')}
 // Inner body of a feature card — everything inside `<div class="card-body">`.
 // Written inline into the standalone page AND as `dashboard-fragment.html`
 // for lazy fetch from the root dashboard, so two callers share this output.
-export function renderFeatureBody(feature, { archived = false, staleDays } = {}) {
+//
+// `basePath` is the URL prefix that, prepended to `browse-fragment.html`,
+// resolves correctly from whichever document this body will end up in. The
+// standalone page sits inside `features/<slug>/` so `basePath` defaults to
+// empty; the body fragment served to the root dashboard needs `features/<slug>/`
+// because the document it gets injected into is the repo root.
+export function renderFeatureBody(feature, { archived = false, staleDays, basePath = '' } = {}) {
   const orchestratorBody = feature.orchestrator?.body || '';
   const sections = {
     headline: extractSection(orchestratorBody, 'Headline').trim(),
@@ -226,7 +254,7 @@ export function renderFeatureBody(feature, { archived = false, staleDays } = {})
     ${sections.shipped ? `<details class="sub"><summary>What shipped since the last snapshot</summary><div>${blockMd(sections.shipped)}</div></details>` : ''}
     ${sections.decisions ? `<details class="sub"><summary>Decisions made</summary><div>${blockMd(sections.decisions)}</div></details>` : ''}
 
-    ${renderBrowseSection(feature)}
+    ${renderBrowseStub(feature, basePath)}
 
     <footer class="dig-deeper">
       <span class="muted">Jump to:</span>
@@ -286,8 +314,11 @@ function deepLinkScript({ withTabs = false, withLazyLoad = false } = {}) {
     });` : ''}
 
     ${withLazyLoad ? `
-    // Lazy-load a feature card body from features/<slug>/dashboard-fragment.html.
-    // Only fetched on first expand (or initial load if open by default).
+    // Lazy-load any <details data-fragment-url="…"> on first expand. Works
+    // for two levels today: the feature card (root dashboard only) and the
+    // browse history (both dashboards). Re-binds after each load so nested
+    // fragments — e.g. a browse stub revealed by loading a feature body —
+    // also pick up the handler.
     async function loadFragment(details) {
       const target = details.querySelector('[data-fragment-target]');
       if (!target || target.dataset.loaded === 'ok' || target.dataset.loaded === 'loading') return;
@@ -299,12 +330,23 @@ function deepLinkScript({ withTabs = false, withLazyLoad = false } = {}) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         target.innerHTML = await res.text();
         target.dataset.loaded = 'ok';
+        attachFragmentHandlers(target);
       } catch (e) {
-        const slug = details.dataset.slug || 'feature';
-        const standalone = 'features/' + encodeURIComponent(slug) + '/dashboard.html';
-        target.innerHTML = '<div class="fragment-placeholder error">Couldn\\'t fetch <code>' + url + '</code> (' + e.message + '). If you opened this via <code>file://</code>, the browser may be blocking it — try serving the directory (<code>python3 -m http.server</code>) or open the <a href="' + standalone + '">standalone page</a>.</div>';
+        const slug = details.closest('details[data-slug]')?.dataset.slug;
+        const standalone = slug ? 'features/' + encodeURIComponent(slug) + '/dashboard.html' : null;
+        const standaloneLink = standalone ? ' or open the <a href="' + standalone + '">standalone page</a>' : '';
+        target.innerHTML = '<div class="fragment-placeholder error">Couldn\\'t fetch <code>' + url + '</code> (' + e.message + '). If you opened this via <code>file://</code>, the browser may be blocking it — try serving the directory (<code>python3 -m http.server</code>)' + standaloneLink + '.</div>';
         target.dataset.loaded = 'error';
       }
+    }
+
+    function attachFragmentHandlers(root) {
+      root.querySelectorAll('details[data-fragment-url]').forEach(d => {
+        if (d.__fragmentBound) return;
+        d.__fragmentBound = true;
+        d.addEventListener('toggle', () => { if (d.open) loadFragment(d); });
+        if (d.open) loadFragment(d);
+      });
     }
 
     // Map a hash like "#feature-<slug>-..." to the feature stub that hosts it.
@@ -317,25 +359,32 @@ function deepLinkScript({ withTabs = false, withLazyLoad = false } = {}) {
       return null;
     }
 
-    // Toggle handler: fetch on first expand. Also handles the open-by-default case.
-    document.querySelectorAll('details.feature[data-fragment-url]').forEach(d => {
-      d.addEventListener('toggle', () => { if (d.open) loadFragment(d); });
-      if (d.open) loadFragment(d);
-    });` : ''}
+    attachFragmentHandlers(document);` : ''}
 
     async function openTo(hash) {
       if (!hash) return;
       const safeQuery = h => { try { return document.querySelector(h); } catch (_) { return null; } };
       let el = safeQuery(hash);
       ${withLazyLoad ? `
+      // Lazy chain: open the feature stub (loads its body fragment) →
+      // if the target is still missing, open the browse stub inside that
+      // feature (loads the browse fragment) → retry.
       if (!el) {
         const stub = findFeatureStubForHash(hash);
         if (stub) {
           const panel = stub.closest('.tab-panel');
           if (panel && panel.classList.contains('hidden')) activateTab(panel.dataset.panel);
           stub.open = true;
-          await loadFragment(stub);
+          if (stub.dataset.fragmentUrl) await loadFragment(stub);
           el = safeQuery(hash);
+          if (!el) {
+            const browseStub = stub.querySelector('details.browse-section[data-fragment-url]');
+            if (browseStub) {
+              browseStub.open = true;
+              await loadFragment(browseStub);
+              el = safeQuery(hash);
+            }
+          }
         }
       }` : ''}
       if (!el) return;
@@ -444,7 +493,7 @@ export function renderFeatureStandalone(feature, { staleDays, cssHref }) {
       </div>
     </details>
   </main>
-  <script>${deepLinkScript({ withTabs: false, withLazyLoad: false })}</script>
+  <script>${deepLinkScript({ withTabs: false, withLazyLoad: true })}</script>
 </body>
 </html>
 `;

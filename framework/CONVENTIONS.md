@@ -132,15 +132,17 @@ Pull before editing, push immediately after.
 
 ## Bootstrap a feature
 
-```bash
-SLUG=<feature-slug>
-mkdir -p features/$SLUG/{overview,repos,contracts,decisions,digest,log,tickets,cursors,orchestrator}
-cp framework/templates/MISSION.md features/$SLUG/MISSION.md
-# Fill in placeholders in features/$SLUG/MISSION.md, then ask any agent in shared-context:
-#   "Bootstrap orchestrator snapshot for feature <slug>."
-```
+Use `/bootstrap <slug>` from any agent session in a participating repo. The slash command (see [`commands/bootstrap.md`](./commands/bootstrap.md)) handles the whole flow:
 
-`/bootstrap <slug>` from any agent session does the above + walks through goal/scope and asks the orchestrator to write the first snapshot.
+1. Auto-wires shared-context Read/Write permissions into the bootstrapping repo's `.claude/settings.local.json` (one-time per repo).
+2. Scaffolds `features/<slug>/` directory tree.
+3. Copies `templates/MISSION.md` to `features/<slug>/MISSION.md` and walks you through Goal / Scope / Repos / Success criteria.
+4. Writes the founding repo's first positional status under `repos/<self>/`.
+5. Drops a `[fy]` announcement DSL log entry so other repos can discover the feature.
+6. Writes a minimal first orchestrator snapshot inline (the founding agent temporarily wears the orchestrator hat for this single write).
+7. Runs `node framework/bin/render-dashboard.mjs` so the dashboard reflects the new feature immediately.
+
+After bootstrap, other repos run `/join <slug>` once each to announce their presence, then everyone switches to `/resume <slug>` for ongoing work.
 
 ---
 
@@ -169,6 +171,13 @@ Files under `log/`, `digest/`, `decisions/`, `contracts/`, `repos/<self>/`, `cur
 
 `bin/hook-lint.sh` runs as `PreToolUse` on `Write`. Default mode: warn (stderr + write proceeds). Set `SHARED_CONTEXT_LINT_MODE=block` to exit 2 — Claude Code surfaces the message as a system reminder so the agent re-plans.
 
+What the lint checks:
+
+- **Body word budgets** (table above) for every supported artefact type.
+- **Log `from:` identity** is listed in `AGENTS.md` (both DSL and legacy md log entries).
+- **Positional repo-status schema** — every `.positional` file must have exactly 9 `|`-separated fields, and its first field (the `repo:`) must match the `<repo>` segment of its path. Catches "wrote into another repo's `repos/<them>/`" and missing-pipe parse errors before the dashboard silently drops the row.
+- **Cursor frontmatter shape** — `cursors/<repo>/current.md` must declare all required keys (`type`, `repo`, `at`, `last_checkpoint_read`, `last_log_read`, `last_pivot_read`, `contracts_synced`, `last_decision_read`); null values are fine but the keys must be present. The `repo:` value must match the path segment.
+
 **Opt-out for genuinely oversize artifacts** (e.g. an RFC-shaped `ask`): make the first non-blank body line, immediately after the frontmatter:
 
 ```
@@ -180,6 +189,18 @@ Use sparingly. The next agent still pays the read cost — prefer splitting into
 ### Retiring old entries
 
 Drop a `<original-stem>.superseded.md` tombstone (frontmatter only, empty body). Agents skip the original by default; the dashboard badges it as superseded. This is how append-only is honoured while pruning. Frontmatter shape in [`README.md` §7](./README.md#tombstone--superseded).
+
+### Signalling "I'm done with my part"
+
+When a repo finishes its work on a feature but the feature isn't fully closed (other repos still have work to do, deploy still pending, etc.), don't go silent — leave a clear marker so the rest of the team isn't guessing whether you're stuck or waiting:
+
+1. Write a fresh `repos/<self>/<iso>.positional` with:
+   - `current_goal: idle — waiting on <repo|event>` (e.g. `idle — waiting on app-gateway` or `idle — waiting on prod deploy slot`).
+   - `next: ` (empty).
+   - `blocked_on: <one-phrase blocker>` if there's something specific others should action. The dashboard surfaces `blocked_on` automatically; this is how you make the wait visible without writing a log entry.
+2. Optionally: a single `[fy]` log line if it's worth announcing ("test-repo-1 done; output is X; see Y").
+
+No protocol change — just a documented pattern. `/close-project` is the right verb only when the *whole feature* is wrapping up.
 
 ---
 

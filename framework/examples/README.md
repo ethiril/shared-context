@@ -9,13 +9,12 @@ Small fictitious two-repo feature: `api` enqueues a job on signup; `worker` cons
 Shows:
 
 - `MISSION.md` — Goal / Scope / Repos / Success criteria for a real-sized feature.
-- `overview/` — agent-authored first description of the same.
-- `contracts/welcome-email-job/v1.0.0.md` — versioned wire contract with producer/consumer expectations.
-- `decisions/...-fire-and-forget-semantics.md` — ADR with rationale + tradeoffs.
-- `log/` ask + answer pair — `api` ships a contract-change, `worker` acks. Note the `to:` routing.
-- `repos/<repo>/<ts>.md` — terse, bulleted per-repo statuses.
-- `digest/` — end-of-session checkpoint that stands alone as state of the feature.
+- `contracts/welcome-email-job/...v1.0.0.dsl` — versioned wire contract as a single DSL line (producer / consumer / queue / payload sections, `|`-separated).
+- `decisions/...-fire-and-forget-semantics.md` — ADR (YAML frontmatter + body) with rationale + tradeoffs.
+- `log/` contract-change + answer pair — `api > worker [cc]` then `worker > api [a]`. One DSL line per file; note the `from > to [kind] @at: summary | refs | body` shape.
+- `repos/<repo>/<ts>.positional` — one positional record per status snapshot. 9 fields, `|`-separated; `~`-separated lists for `done`/`next`/`blocked_on`; inline JSON for `contracts_in_play` and `open_questions`.
+- `digest/` — end-of-session checkpoint (YAML + body) that stands alone as state of the feature.
 - `orchestrator/<ts>-orchestrator.md` — human-facing snapshot. Note the prose voice and `Open for the human` section.
-- `cursors/<repo>/<ts>.md` — per-repo "what I've read" bookmark.
+- `cursors/<repo>/current.md` — per-repo rolling "what I've read" bookmark (overwritten each session).
 
 This sample is **inert** — `framework/examples/` lives outside the top-level `features/` directory the renderer scans, so the dashboard ignores it. Copy the structure, not the literal files.
