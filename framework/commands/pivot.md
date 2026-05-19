@@ -38,13 +38,13 @@ The "placeholder ADR now" path closes the gap where a tombstone lands hours befo
 
 ### 4. Pivot log
 
-Append one line to `features/<slug>/log/log.dsl`:
+Write a new file `features/<slug>/log/<UTC-ISO-timestamp>-<your-repo>-pivot-<slug>.dsl` (single DSL line):
 
 ```
 <your-repo> > all [pv] @<ISO>: One sentence — the new direction. | refs: <any new contract or decision files written in step 5> | supersedes: all-prior | <body — see below>
 ```
 
-`supersedes:` may be `all-prior` or a comma-separated list of timestamps to retire specific prior lines. The trailing body section is plain prose after the final `|` (100–250 words; lint caps at 200 — append `# allow-oversize: pivot body covers N retired items` at the end of the line if you need to exceed it).
+`supersedes:` may be `all-prior`, a comma-separated list of prior log filenames, or `@at:` timestamps to retire specific entries. The trailing body section is plain prose after the final `|` (100–250 words; lint caps at 200 — append `# allow-oversize: pivot body covers N retired items` at the end of the line if you need to exceed it).
 
 Body content: why pivoting, what's still valid, what to ignore from before, what changes for whom. For each tombstoned-with-no-replacement or deferred-replacement, add a "what's owed" bullet (use `~` or `;` inside the body since `|` is the field separator).
 

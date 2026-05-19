@@ -1,7 +1,7 @@
 ---
 description: Refresh Mission Control — write a fresh orchestrator snapshot + dashboard + index
 argument-hint: <feature-slug>
-model: claude-sonnet-4-6
+model: claude-opus-4-7
 ---
 
 Refresh Mission Control for feature **$ARGUMENTS**.
@@ -14,13 +14,17 @@ Read `framework/orchestrator/brief.md`. For `/refresh` you write as `orchestrato
 
 ### 2. Read inputs (per the brief)
 
-1. `features/$ARGUMENTS/MISSION.md`
-2. Previous snapshot — `features/$ARGUMENTS/orchestrator/` latest file
-3. Latest digest per repo — `features/$ARGUMENTS/digest/`
-4. Latest status per repo — `features/$ARGUMENTS/repos/<repo>/`
-5. Log entries newer than previous snapshot — `features/$ARGUMENTS/log/`
-6. Decisions newer than previous snapshot — `features/$ARGUMENTS/decisions/`
-7. Contracts — only if a digest mentions a version change
+**Format-protocol skip rule:** Open `.claude/settings.local.json` and check `shared_context_framework_version`. If it equals **2** (the current version, declared at README §7's `FRAMEWORK_VERSION`), the format note below is a complete substitute and **you can skip re-reading §7 entirely.** If missing or lower, read §7 in full, then update the field to 2 in settings. (Note: as orchestrator your CWD is typically the shared-context root, so the `.claude/settings.local.json` you check is at the repo root.)
+
+**Format note (≈ README §7, v2):** Inputs span DSL (`log/*.dsl`, `repos/<repo>/*.positional`, `contracts/<api>/*.dsl`) and YAML (`MISSION.md`, `orchestrator/`, `digest/`, `decisions/`, legacy `.md` siblings of any of the above). Read both shapes; filter by the same fields.
+
+1. `features/$ARGUMENTS/MISSION.md` (YAML).
+2. Previous snapshot — `features/$ARGUMENTS/orchestrator/` latest file (YAML).
+3. Latest digest per repo — `features/$ARGUMENTS/digest/` (YAML).
+4. Latest status per repo — `features/$ARGUMENTS/repos/<repo>/` latest `.positional` (fallback: legacy `.md`).
+5. Log entries newer than previous snapshot — `features/$ARGUMENTS/log/*.dsl` (newer than snapshot `at:`) **plus** legacy `log/*.md`. Treat retired-by-`[pv]` entries as out of scope.
+6. Decisions newer than previous snapshot — `features/$ARGUMENTS/decisions/` (YAML).
+7. Contracts — only if a digest mentions a version change. `.dsl` or legacy `.md`.
 
 Budget ≤ ~8k tokens. If a single feature exceeds, read MISSION + latest digest + latest repo statuses only and say so in the snapshot.
 

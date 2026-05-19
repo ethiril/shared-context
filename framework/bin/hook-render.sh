@@ -32,10 +32,14 @@ case "$FILE_PATH" in
 esac
 
 # Don't react to writes the render script itself produces (would loop):
-# dashboard.html at the repo root, or any per-feature _index.md.
+# the root dashboard, per-feature _index.md, the standalone feature pages,
+# and the lazy-loaded fragment files.
 case "$FILE_PATH" in
   "$SHARED_CONTEXT_ROOT/dashboard.html") exit 0 ;;
   "$FEATURES_PREFIX"*/_index.md) exit 0 ;;
+  "$FEATURES_PREFIX"*/dashboard.html) exit 0 ;;
+  "$FEATURES_PREFIX"*/dashboard-fragment.html) exit 0 ;;
+  "$FEATURES_PREFIX"*/browse-fragment.html) exit 0 ;;
 esac
 
 # Render. Errors go to stderr but never fail the hook.

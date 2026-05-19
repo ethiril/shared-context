@@ -2,6 +2,7 @@
 /features/
 /AGENTS.md
 /dashboard.html
+/index.html
 
 # Local Claude Code config (contains absolute paths).
 .claude/settings.local.json

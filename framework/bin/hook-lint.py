@@ -24,7 +24,7 @@ from pathlib import Path
 
 BUDGETS = {
     "log":                     200,
-    "log-dsl":                 200,  # applied to the last appended line of log.dsl
+    "log-dsl":                 200,  # one DSL event per file
     "decision":                300,
     "repo-status":             250,
     "repo-status-positional":  250,
@@ -38,7 +38,7 @@ def classify(path: Path, features_root: Path) -> str | None:
     """Return the artifact type for paths we lint; None otherwise.
 
     Returned types map 1:1 to BUDGETS. Compact formats are distinguished from
-    YAML by a suffix: `log-dsl` (rolling .dsl file), `repo-status-positional`
+    YAML by a suffix: `log-dsl` (one event per .dsl file), `repo-status-positional`
     (one .positional line per file). Contracts (.dsl) have unlimited budget so
     they're not classified.
     """
@@ -52,7 +52,7 @@ def classify(path: Path, features_root: Path) -> str | None:
         return None
     bucket = parts[1]
     if bucket == "log":
-        if rel.name == "log.dsl":
+        if rel.suffix == ".dsl":
             return "log-dsl"
         if rel.suffix == ".md":
             return "log"
@@ -107,13 +107,6 @@ def extract_from_field(frontmatter: str) -> str | None:
 # checks. The renderer's parsers.mjs is the authoritative format spec; this
 # only needs to count words.
 
-def last_nonblank_line(text: str) -> str:
-    for line in reversed(text.splitlines()):
-        if line.strip():
-            return line
-    return ""
-
-
 def dsl_log_line_from(line: str) -> str | None:
     """Extract the `from` field of a DSL log line, or None if unparseable."""
     m = re.match(r"^(?:\[[^\]]+\]\s*)?(\S+)\s*>", line.strip())
@@ -166,6 +159,118 @@ def positional_repo_body_words(line: str) -> int:
     return sum(len(p.replace("~", " ").split()) for p in prose_parts)
 
 
+# Schema validation for positional repo-status lines. The format is rigid —
+# 9 pipe-separated fields, no more, no fewer — and the first field must match
+# the `<repo>` segment of the file path. A mismatch is the symptom of either
+# a writer accidentally putting content in another repo's directory, or a
+# typo on the first field. Both are silent-bug producers without this check.
+POSITIONAL_FIELD_COUNT = 9
+
+
+def validate_positional_consistency(line: str, repo_from_path: str | None) -> str | None:
+    """Return an error message describing the problem, or None if the line is
+    a valid 9-field positional whose first field matches `repo_from_path`."""
+    stripped = line.strip()
+    if not stripped:
+        return "positional file is empty (expected one record line)."
+    # Split honouring \| escapes — same logic as parsers.mjs's splitEscaped.
+    fields: list[str] = []
+    current = ""
+    i = 0
+    while i < len(stripped):
+        if stripped[i] == "\\" and i + 1 < len(stripped) and stripped[i + 1] == "|":
+            current += "|"
+            i += 2
+            continue
+        if stripped[i] == "|":
+            fields.append(current)
+            current = ""
+            i += 1
+            continue
+        current += stripped[i]
+        i += 1
+    fields.append(current)
+
+    if len(fields) != POSITIONAL_FIELD_COUNT:
+        return (
+            f"positional record has {len(fields)} fields ({len(fields) - 1} pipes); schema is "
+            f"{POSITIONAL_FIELD_COUNT} fields ({POSITIONAL_FIELD_COUNT - 1} pipes): "
+            "repo|at|summary|current_goal|done|next|blocked_on|contracts_in_play|open_questions. "
+            "Likely missing or extra '|' — check empty list fields are 'blank' not omitted."
+        )
+
+    repo_field = fields[0].strip()
+    if repo_from_path and repo_field and repo_field != repo_from_path:
+        return (
+            f"positional first field is {repo_field!r} but the path is under "
+            f"repos/{repo_from_path}/. A repo must never write into another repo's repos/<them>/ — "
+            "either move the file under the correct repo directory, or correct the first field."
+        )
+    return None
+
+
+# Required keys on a rolling cursor (cursors/<repo>/current.md). All eight
+# appear in the README §7 spec example; the parser already tolerates missing
+# values via `null`, so the lint goal here is to catch *missing keys* (which
+# silently break downstream resume logic) rather than null values.
+CURSOR_REQUIRED_FIELDS = {
+    "type", "repo", "at",
+    "last_checkpoint_read", "last_log_read", "last_pivot_read",
+    "contracts_synced", "last_decision_read",
+}
+
+
+def validate_cursor_frontmatter(frontmatter: str, repo_from_path: str | None) -> str | None:
+    """Return an error message, or None if the cursor frontmatter is shaped
+    per spec. Tolerant of value form (e.g. `contracts_synced` as map or list)
+    — only checks that the keys are present and `repo:` matches the path."""
+    if not frontmatter.strip():
+        return "cursor file has no frontmatter (expected `---` block with type/repo/at/...)."
+    present_keys: set[str] = set()
+    repo_value: str | None = None
+    for line in frontmatter.splitlines():
+        match = re.match(r"^([a-zA-Z_][\w]*)\s*:", line)
+        if not match:
+            continue
+        key = match.group(1)
+        present_keys.add(key)
+        if key == "repo":
+            repo_match = re.match(r"^repo\s*:\s*(.+?)\s*$", line)
+            if repo_match:
+                repo_value = repo_match.group(1)
+
+    missing = CURSOR_REQUIRED_FIELDS - present_keys
+    if missing:
+        ordered = sorted(missing)
+        return (
+            f"cursor frontmatter is missing required keys: {', '.join(ordered)}. "
+            "Spec is README §7 → cursor; null values are fine but the keys must be present."
+        )
+
+    if repo_from_path and repo_value and repo_value != repo_from_path:
+        return (
+            f"cursor declares repo: {repo_value!r} but the path is cursors/{repo_from_path}/. "
+            "A repo must only write to its own cursors/<self>/."
+        )
+    return None
+
+
+# Pulls the `<repo>` segment from paths like
+#   features/<slug>/repos/<repo>/<iso>.positional
+#   features/<slug>/cursors/<repo>/current.md
+# Returns None if the path doesn't have the expected shape.
+def repo_segment_from_path(path: Path, features_root: Path, bucket: str) -> str | None:
+    try:
+        rel = path.relative_to(features_root)
+    except ValueError:
+        return None
+    parts = rel.parts
+    # features_root/<slug>/<bucket>/<repo>/<filename>  →  parts = (slug, bucket, repo, filename)
+    if len(parts) < 4 or parts[1] != bucket:
+        return None
+    return parts[2]
+
+
 def emit(msg: str, mode: str) -> int:
     label = "shared-context lint (block):" if mode == "block" else "shared-context lint (warn): "
     sys.stderr.write(f"{label} {msg}\n")
@@ -207,12 +312,13 @@ def main() -> int:
     exit_codes: list[int] = []
 
     # Per-format body extraction + opt-out + identity check.
+    schema_error: str | None = None
     if artifact == "log-dsl":
-        # Lint the last appended line only (the most-recently-written event).
-        last_line = last_nonblank_line(content)
-        opt_out = "# allow-oversize:" in last_line
-        words = dsl_log_body_words(last_line)
-        from_field = dsl_log_line_from(last_line)
+        # One event per file — use the single non-blank line.
+        line = first_nonblank_line(content)
+        opt_out = "# allow-oversize:" in line
+        words = dsl_log_body_words(line)
+        from_field = dsl_log_line_from(line)
         identity_text = from_field or ""
         check_identity_in_agents_md = bool(from_field)
     elif artifact == "repo-status-positional":
@@ -221,6 +327,16 @@ def main() -> int:
         words = positional_repo_body_words(line)
         identity_text = ""
         check_identity_in_agents_md = False
+        repo_from_path = repo_segment_from_path(path, features_root, bucket="repos")
+        schema_error = validate_positional_consistency(line, repo_from_path)
+    elif artifact == "cursor":
+        frontmatter, body = strip_frontmatter(content)
+        opt_out = first_nonblank_line(body).startswith("# allow-oversize:")
+        words = len(body.split())
+        identity_text = ""
+        check_identity_in_agents_md = False
+        repo_from_path = repo_segment_from_path(path, features_root, bucket="cursors")
+        schema_error = validate_cursor_frontmatter(frontmatter, repo_from_path)
     else:
         # YAML-frontmatter artefacts (legacy + denser-md + yaml-only).
         frontmatter, body = strip_frontmatter(content)
@@ -236,6 +352,10 @@ def main() -> int:
             "Trim the body, or add '# allow-oversize: <one-line reason>' to opt out (and explain why).",
             mode,
         ))
+
+    if schema_error:
+        relpath = path.relative_to(shared_root) if shared_root in path.parents else path
+        exit_codes.append(emit(f"{relpath}: {schema_error}", mode))
 
     # Identity-roster check (log entries — md+YAML and DSL alike).
     if check_identity_in_agents_md and identity_text:

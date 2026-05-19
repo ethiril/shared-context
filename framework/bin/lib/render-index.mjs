@@ -3,7 +3,7 @@
 // instead of opening N raw notes. Entries marked superseded are
 // segregated so the default read skips them.
 
-import { extractSummary } from './markdown.mjs';
+import { extractSummary, extractSection, extractBullets } from './markdown.mjs';
 import { rowFor } from './feature.mjs';
 
 const CLOSED_TICKET_STATUSES = new Set(['done', 'cancelled']);
@@ -11,6 +11,7 @@ const SUPERSEDED = 'superseded';
 const SKIPPED = 'skipped';
 const RECENT_LOG_LIMIT = 15;
 const RECENT_DIGEST_LIMIT = 5;
+const RECENT_DECISION_LIMIT = 5;
 
 export function renderIndex(feature) {
   const generatedAt = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
@@ -50,11 +51,65 @@ function appendMissionSection(lines, feature) {
 function appendLatestCheckpointSection(lines, feature) {
   lines.push('## Latest checkpoint — read this first');
   if (feature.orchestrator) {
-    const summary = extractSummary({ fm: feature.orchestrator.fm, body: feature.orchestrator.body });
-    const status = feature.orchestrator.fm.status || '?';
-    const at = feature.orchestrator.fm.at || '?';
-    lines.push(`- \`orchestrator/${feature.orchestrator.filename}\` · ${at} · ${status}`);
+    const { fm, body, filename } = feature.orchestrator;
+    const summary = extractSummary({ fm, body });
+    const status = fm.status || '?';
+    const at = fm.at || '?';
+    lines.push(`- \`orchestrator/${filename}\` · ${at} · ${status}`);
     if (summary) lines.push(`  - ${summary}`);
+
+    // Inline the most actionable snapshot sections so /catch-up doesn't need
+    // to open the snapshot file on the fast path. Keep tight — full snapshot
+    // is always one file-open away if needed. Order matches the canonical
+    // snapshot template (Headline → Where each repo stands → Open for the
+    // human → Next up).
+    const headline = (extractSection(body, 'Headline') || '').trim();
+    if (headline) {
+      lines.push('');
+      lines.push('  **Headline (from latest snapshot):**');
+      for (const line of headline.split('\n').map(l => l.trim()).filter(Boolean)) {
+        lines.push(`  > ${line}`);
+      }
+    }
+
+    const whereStands = extractSection(body, 'Where each repo stands');
+    if (whereStands) {
+      const bullets = extractBullets(whereStands);
+      if (bullets.length) {
+        lines.push('');
+        lines.push('  **Where each repo stands (from latest snapshot):**');
+        for (const bullet of bullets) {
+          // Truncate each repo bullet to its first sentence to bound _index growth.
+          const firstSentence = bullet.split(/(?<=[.!?])\s+/)[0] || bullet;
+          lines.push(`  - ${firstSentence.trim()}`);
+        }
+      }
+    }
+
+    const openForHuman = extractSection(body, 'Open for the human');
+    if (openForHuman) {
+      const bullets = extractBullets(openForHuman)
+        .filter(b => !b.toLowerCase().startsWith('nothing'));
+      if (bullets.length) {
+        lines.push('');
+        lines.push('  **Open for the human (from latest snapshot):**');
+        for (const bullet of bullets) {
+          lines.push(`  - ${bullet}`);
+        }
+      }
+    }
+
+    const nextUp = extractSection(body, 'Next up');
+    if (nextUp) {
+      const bullets = extractBullets(nextUp);
+      if (bullets.length) {
+        lines.push('');
+        lines.push('  **Next up (from latest snapshot):**');
+        for (const bullet of bullets) {
+          lines.push(`  - ${bullet}`);
+        }
+      }
+    }
   } else if (feature.digest) {
     lines.push(`- (no orchestrator snapshot yet — fall back to digest \`digest/${feature.digest.filename}\`)`);
   } else {
@@ -69,12 +124,20 @@ function appendDecisionsSections(lines, feature) {
   const superseded = decisions.filter(d => d.fm.status === SUPERSEDED);
 
   if (active.length) {
-    lines.push('## Active decisions');
-    for (const decision of active) {
+    const shown = active.slice(0, RECENT_DECISION_LIMIT);
+    const hidden = active.length - shown.length;
+    const heading = hidden > 0
+      ? `## Recent active decisions (last ${shown.length}, newest first)`
+      : '## Active decisions';
+    lines.push(heading);
+    for (const decision of shown) {
       const summary = extractSummary(decision);
       const title = decision.fm.title || rowFor('decisions', decision).primary;
       lines.push(`- \`decisions/${decision.filename}\` · ${decision.fm.at || decision.ts || '?'} · ${title}`);
       if (summary && summary !== title) lines.push(`  - ${summary}`);
+    }
+    if (hidden > 0) {
+      lines.push(`- _… ${hidden} older active decision${hidden === 1 ? '' : 's'} not shown; see \`decisions/\` for full list._`);
     }
     lines.push('');
   }
