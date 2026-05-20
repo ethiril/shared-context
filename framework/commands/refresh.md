@@ -14,7 +14,7 @@ Read `framework/orchestrator/brief.md`. For `/refresh` you write as `orchestrato
 
 ### 2. Read inputs (per the brief)
 
-**Format-protocol skip rule:** Open `.claude/settings.local.json` and check `shared_context_framework_version`. If it equals **2** (the current version, declared at README §7's `FRAMEWORK_VERSION`), the format note below is a complete substitute and **you can skip re-reading §7 entirely.** If missing or lower, read §7 in full, then update the field to 2 in settings. (Note: as orchestrator your CWD is typically the shared-context root, so the `.claude/settings.local.json` you check is at the repo root.)
+**Format-protocol skip rule:** Check `shared_context_framework_version` in `<CWD>/.claude/settings.local.json` (as orchestrator your CWD is typically the shared-context root, so this is the repo-root settings file — **not** `~/.claude/settings.local.json`). If it equals **2** (current — declared at README §7's `FRAMEWORK_VERSION`), the format note below is a complete substitute and **you can skip re-reading §7 entirely.** If missing or lower, read §7 in full, then update the field to 2.
 
 **Format note (≈ README §7, v2):** Inputs span DSL (`log/*.dsl`, `repos/<repo>/*.positional`, `contracts/<api>/*.dsl`) and YAML (`MISSION.md`, `orchestrator/`, `digest/`, `decisions/`, legacy `.md` siblings of any of the above). Read both shapes; filter by the same fields.
 
