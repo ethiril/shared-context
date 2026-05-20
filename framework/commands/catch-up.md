@@ -6,7 +6,7 @@ model: claude-opus-4-7
 
 Catch-up on feature **$ARGUMENTS**. Protocol: `framework/README.md` §2 + this file. Reports state + next action; doesn't write inbox responses (use `/resume` for that).
 
-**Format-protocol skip rule:** Check `shared_context_framework_version` in `.claude/settings.local.json`. If it equals **2** (current — declared at README §7's `FRAMEWORK_VERSION`), use the format note below and skip re-reading §7. If missing/lower, read §7 in full, then bump the field.
+**Format-protocol skip rule:** Check `shared_context_framework_version` in your repo's `<CWD>/.claude/settings.local.json` (**not** `~/.claude/settings.local.json`). If it equals **2** (current — declared at README §7's `FRAMEWORK_VERSION`), use the format note below and skip re-reading §7. If missing/lower, read §7 in full, then bump the field.
 
 **Format note (≈ README §7, v2):** Logs are per-event `.dsl` in `log/` (one DSL line each). Repo statuses are `<iso>.positional`. Contracts are `<iso>-<repo>-v<X.Y.Z>.dsl`. Legacy `*.md`+YAML still parses.
 
@@ -21,6 +21,7 @@ Catch-up on feature **$ARGUMENTS**. Protocol: `framework/README.md` §2 + this f
    - Log entries newer than `cursor.last_log_read` that `_index` flagged (asks `to:` you, pivots, contract-changes affecting your code). Skip ones already summarised.
    - For each API surface you'll actually touch: latest `contracts/<api>/*.dsl` (or legacy `.md`).
    - Decisions newer than `cursor.last_decision_read` with `status: accepted` — open only the ones `_index` suggests are relevant. Don't read every ADR.
+7. **Git state (one call, bounded).** Run `git status --short && git branch --show-current` once. Stop there — don't dig into `git log`, branch history, or remote state unless an inbox item specifically calls for it. The goal is orientation, not investigation.
 
 Default skips apply (README §2).
 

@@ -16,7 +16,7 @@ Resume on feature **$ARGUMENTS**. Light state-load → apply pivots → pull inb
 
 **Once-per-session (skip if loaded):** `framework/README.md`, `AGENTS.md` → identify yourself from CWD.
 
-**Format-protocol skip rule:** Check `shared_context_framework_version` in `.claude/settings.local.json`. If it equals **2** (current — declared at README §7's `FRAMEWORK_VERSION`), use the format note below and skip re-reading §7. If missing/lower, read §7 in full, then bump the field. If higher, your slash command is out of date — flag to user.
+**Format-protocol skip rule:** Check `shared_context_framework_version` in your repo's `<CWD>/.claude/settings.local.json` (**not** `~/.claude/settings.local.json`). If it equals **2** (current — declared at README §7's `FRAMEWORK_VERSION`), use the format note below and skip re-reading §7. If missing/lower, read §7 in full, then bump the field. If higher, your slash command is out of date — flag to user.
 
 **Format note (≈ README §7, v2):** Logs are per-event DSL files in `log/` (`<iso>-<repo>-<slug>.dsl`, one line: `from > to [kind] @at: summary | refs | body`). Repo statuses are `<iso>.positional`. Contracts are `<iso>-<repo>-v<X.Y.Z>.dsl`. Legacy `*.md`+YAML still parses.
 
