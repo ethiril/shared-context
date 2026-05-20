@@ -4,6 +4,18 @@
 /dashboard.html
 /index.html
 
+# Generated doc-page siblings (re-rendered by `bin/render-dashboard.mjs`
+# alongside `dashboard.html` so clicking from `index.html` lands on styled
+# pages instead of raw markdown). Source-of-truth `.md` files stay tracked.
+/AGENTS.html
+/README.html
+/framework/README.html
+/framework/CONVENTIONS.html
+/framework/orchestrator/brief.html
+/framework/commands/*.html
+/framework/templates/*.html
+/framework/examples/index.html
+
 # Local Claude Code config (contains absolute paths).
 .claude/settings.local.json
 

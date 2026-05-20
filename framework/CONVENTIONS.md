@@ -188,7 +188,7 @@ Use sparingly. The next agent still pays the read cost — prefer splitting into
 
 ### Retiring old entries
 
-Drop a `<original-stem>.superseded.md` tombstone (frontmatter only, empty body). Agents skip the original by default; the dashboard badges it as superseded. This is how append-only is honoured while pruning. Frontmatter shape in [`README.md` §7](./README.md#tombstone--superseded).
+Drop a `<original-stem>.superseded.md` tombstone (frontmatter only, empty body). Agents skip the original by default; the dashboard badges it as superseded. This is how append-only is honoured while pruning. Frontmatter shape in [`README.md` §7](./README.md#7-artefact-formats).
 
 ### Signalling "I'm done with my part"
 

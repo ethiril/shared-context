@@ -1,62 +1,204 @@
 ---
-description: Bootstrap a new shared-context feature folder
+description: Bootstrap a new shared-context feature folder (4-phase workshop)
 argument-hint: <feature-slug>
 ---
 
-Bootstrap new feature **$ARGUMENTS**.
+Bootstrap new feature **$ARGUMENTS** as a *workshop*: scaffold instantly, then walk the human through intake → scope-out → planning. Each phase commits to `MISSION.md` so a `/clear` mid-workshop doesn't lose progress.
 
-**Format note (see README §7):** `log/`, `repos/`, `contracts/` use compact formats (DSL / positional / DSL). Everything else (MISSION, decisions, digest, orchestrator, cursor) stays YAML+body.
+**Format note (see README §7):** `log/`, `repos/`, `contracts/` use compact formats. Everything else (MISSION, decisions, digest, orchestrator, cursor) is YAML+body.
 
 ### Hard rules
 
-- **Do not create or write to `overview/`.** The folder is deprecated; MISSION.md + its `## Amendments` section is the single source of feature identity. The scaffold step below does not create `overview/`. Do not add it back.
-- **Step 5 (first orchestrator snapshot) is mandatory.** Until that snapshot exists, `/catch-up` and `/resume` fall back to a degraded "no checkpoint" path. Do not skip it, even if the feature is "trivial."
+- **Do not create `overview/`.** Deprecated.
+- **Do not skip the orchestrator snapshot at the end of phase 4.** Until it exists, `/catch-up` and `/resume` fall back to a degraded path.
+- **Detect resume-mid-bootstrap.** If `features/$ARGUMENTS/MISSION.md` already exists, read it and jump to the first phase whose section is still empty/placeholder. Don't re-do completed phases.
 
-**Steps (in order):**
+---
 
-0. **Ensure shared-context permissions + framework version marker** (one-time per repo). Read your repo's `CLAUDE.md` to find the *"Cross-repo coordination lives at …"* line — that absolute path is `<SHARED_CONTEXT_ROOT>`. Open `.claude/settings.local.json` in your CWD. Do both of the below; Edit the file as needed:
+## Phase 1 — Scaffold (instant, no questions)
 
-   **Permissions** — if `permissions.allow` doesn't already include both patterns below, add them (substitute `<SHARED_CONTEXT_ROOT>` with the literal path):
-   - `Read(<SHARED_CONTEXT_ROOT>/**)` — read anywhere in shared-context
-   - `Write(<SHARED_CONTEXT_ROOT>/features/**)` — write under `features/` only
+Do this immediately on invocation. No `AskUserQuestion`, no prose-with-the-user. Just file ops.
 
-   **Framework version marker** — set a top-level field: `"shared_context_framework_version": 2`. This tells future `/resume` and `/catch-up` sessions in this repo that you've absorbed README §7 at v2, so they can skip re-reading it. Bump the value when README §7 declares a new `FRAMEWORK_VERSION`.
+### 1a. Permissions + framework version marker (one-time per repo)
 
-   **Idempotent:** skip if both perm patterns (or broader equivalents like a bare `*`) and the version marker are already present. Don't remove existing narrower entries — additive only. If the file doesn't exist, create it with the two patterns under `permissions.allow`, an empty `deny: []`, and the version marker at the top level. After this step, shared-context reads/writes auto-approve without per-file prompts.
+Read your repo's `CLAUDE.md` to find the *"Cross-repo coordination lives at …"* line — that absolute path is `<SHARED_CONTEXT_ROOT>`. Open `.claude/settings.local.json` in your CWD.
 
-1. Scaffold from the shared-context root:
-   ```bash
-   mkdir -p features/$ARGUMENTS/{repos,contracts,decisions,digest,log,tickets,cursors,orchestrator}
-   cp framework/templates/MISSION.md features/$ARGUMENTS/MISSION.md
-   ```
-   `log/` starts empty — each event is written as its own file `<iso>-<repo>-<slug>.dsl` (single DSL line).
+**Permissions** — if `permissions.allow` doesn't already include both patterns below, add them (substitute `<SHARED_CONTEXT_ROOT>` with the literal path):
 
-2. Fill `features/$ARGUMENTS/MISSION.md` — Goal / Scope in+out / Repos / Success criteria. Ask the user for anything unclear. This is the one file humans edit by hand.
+- `Read(<SHARED_CONTEXT_ROOT>/**)` — read anywhere in shared-context
+- `Write(<SHARED_CONTEXT_ROOT>/features/**)` — write under `features/` only
 
-3. Write your repo's first status as a **positional** record: `features/$ARGUMENTS/repos/<your-repo>/<UTC-ISO-timestamp>.positional`. Single line, field separator `|`, list separator `~`. Schema (9 fields, 8 pipes — see README §7 → repo status):
-   ```
-   repo|at|summary|current_goal|done|next|blocked_on|contracts_in_play|open_questions
-   ```
-   `done`, `next`, `blocked_on` are plain `~`-separated lists — empty = blank between pipes. `contracts_in_play` and `open_questions` are inline JSON — empty = `[]` (a blank field is a parse error). Minimal bootstrap-state line (everything empty but `summary` + `current_goal`):
-   ```
-   <repo>|<iso>|Bootstrapped; awaiting kickoff|<one-sentence goal>||||[]|[]
-   ```
-   Eyeball the pipe count before you save: 8 pipes, no more.
+**Framework version marker** — set top-level field `"shared_context_framework_version": 2`. Tells future `/resume` and `/catch-up` sessions you've absorbed README §7 at v2.
 
-4. Announce the feature — write a `[fy]` DSL line as one file: `features/$ARGUMENTS/log/<UTC-ISO-timestamp>-<your-repo>-bootstrap.dsl`. Grammar (README §7 → log entries):
-   ```
-   <your-repo> > all [fy] @<iso-with-colons>: Feature bootstrapped — <one-line invitation>. | refs: MISSION.md, repos/<your-repo>/<iso>.positional | <body — 15-40 words MAX>
-   ```
-   **Do not recap MISSION** — `refs:` already points at it. The body is for *delta* only: which other repos should `/join` (named), any time-sensitive context, any single critical gotcha. If you can't think of anything that isn't in MISSION, leave the body empty.
+Idempotent: skip if both perm patterns (or broader equivalents like a bare `*`) and the version marker are already present. Don't remove existing narrower entries — additive only. If the file doesn't exist, create it with the two patterns under `permissions.allow`, `deny: []`, and the version marker at the top level.
 
-5. Write the first orchestrator snapshot inline. You **temporarily wear the orchestrator hat** for this single write (the only `author: orchestrator` line you'll author outside `/refresh`) — your repo identity stays the same everywhere else. Path: `features/$ARGUMENTS/orchestrator/<UTC-ISO-timestamp>-orchestrator.md`. Frontmatter `{type: orchestrator-snapshot, author: orchestrator, at: <iso-with-colons>, status: on-track, trigger: bootstrap, summary: <one sentence, ≤ 30 words>}`. Body ≤ 150 words: a `## Headline` paragraph saying "Feature bootstrapped — awaiting joins from <named repos>"; `## Where each repo stands` listing the founding repo + any expected joiners as "(joining)"; `## Open for the human` = `Nothing — heads-down on initial setup.`. Skip "What shipped" and "Decisions made" — nothing has yet. The bootstrap snapshot is intentionally minimal — `/refresh` rewrites it once substantive work lands.
+### 1b. Scaffold folders + empty MISSION
 
-6. Render the dashboard from the shared-context root:
-   ```bash
-   node framework/bin/render-dashboard.mjs
-   ```
-   Pure aggregation, no LLM cost. Single-line output. The dashboard now reflects the new feature with the bootstrap snapshot.
+```bash
+mkdir -p features/$ARGUMENTS/{repos,contracts,decisions,digest,log,tickets,cursors,orchestrator}
+cp framework/templates/MISSION.md features/$ARGUMENTS/MISSION.md
+```
 
-**Confirm** what you scaffolded (the file paths) and the next concrete step (usually: tell other repos to run `/join $ARGUMENTS`).
+`log/` starts empty. MISSION.md has the template placeholders (`<One paragraph...>`, `<bullet>`, etc.) — those mark sections as not-yet-filled.
 
-**Onboarding done.** This is the last time you'll run `/bootstrap` for this feature. Subsequent sessions in this repo use `/resume $ARGUMENTS` to continue work.
+### 1c. Confirm and hand off to phase 2
+
+One sentence: "Scaffolded `features/$ARGUMENTS/`. Now let's workshop it." Then go to phase 2.
+
+---
+
+## Phase 2 — Intake (long-form, no suggestions)
+
+**Critical:** ask ONE open question and let the human answer at length. Do NOT prompt with suggestions, examples of feature types, or multiple-choice options. The goal is to hear *their* framing first, unbiased.
+
+### 2a. Ask
+
+Output to the user, verbatim or close:
+
+> Tell me what this feature is. Walk me through it — what it does, what it touches, why it matters now. Don't worry about structure or scope yet; just lay it out.
+
+**Do NOT use `AskUserQuestion` here.** It forces options; we want prose. Just ask in chat and wait.
+
+**Do NOT suggest** ("Is it an API change? A new UI?...") — that anchors the user on your framing.
+
+### 2b. Wait for the long-form answer
+
+The human will reply with prose. Read it carefully. Don't summarise back yet.
+
+### 2c. Commit `## Goal` to MISSION.md
+
+Once the human has given you a substantive answer (≥ 2-3 sentences, you understand the thrust):
+
+- Distil their answer into a `## Goal` paragraph (one paragraph, their words wherever possible).
+- Edit `features/$ARGUMENTS/MISSION.md` — replace the `<One paragraph...>` placeholder under `## Goal` with your distillation. Also fill the `created_at` and `created_by` frontmatter fields.
+- Tell the user: "Captured the goal. Read it back to me — does this match what you said?" Show the paragraph inline.
+- If they correct it, re-edit. Then go to phase 3.
+
+---
+
+## Phase 3 — Scope-out (prodding questions based on phase 2)
+
+Now you ask probing questions *grounded in what they said*. Goal: surface assumptions, edges, and the end-state.
+
+### 3a. Generate the prodding question set
+
+Based on the phase 2 intake, draft 3–6 questions that:
+
+- **Probe what they explicitly considered** ("You mentioned X — is Y in scope too, or out?").
+- **Probe what they may not have considered** ("Did you think about error/empty-state behaviour for X?", "What happens to existing data when this ships?").
+- **Surface the end-state** ("When this is done, what does a user/operator see/do?", "How will you know it's working?").
+- **Pin success criteria** ("What's the minimum that has to be true for you to call this shipped?").
+
+Avoid leading questions. Avoid generic "is this MVP?" framings unless their answer warrants it.
+
+### 3b. Ask them
+
+For 1–4 questions: use a single `AskUserQuestion` call, one question per row, with sensible options derived from their phase 2 intake plus an "Other" escape.
+
+For > 4 questions: ask in plain prose, numbered, and let them answer freeform. Then iterate as needed.
+
+### 3c. Iterate
+
+The first round of answers will reveal more. Ask follow-ups. Don't push to closure prematurely — the point of this phase is depth.
+
+### 3d. Commit `## Scope` + `## Success criteria` to MISSION.md
+
+When the picture is firm:
+
+- Replace the `**In** / **Out**` bullet placeholders under `## Scope` with concrete in/out lines from the conversation.
+- Replace the `## Success criteria` placeholders with measurable outcomes.
+- Show the user the diff: "Here's what I'm committing — confirm or correct."
+- On confirm, save. Go to phase 4.
+
+---
+
+## Phase 4 — Planning (architecture back-and-forth)
+
+The conversational phase. Goal: flesh out *how* this gets built across repos, surface architectural choices, identify contracts that will need to exist.
+
+### 4a. Open the discussion
+
+Prompt the user something like:
+
+> Now let's plan how this gets built. Which repos do you think need to participate? What APIs or contracts do you see emerging? Anything you're not sure how to approach?
+
+Let them lead. Don't impose a decomposition.
+
+### 4b. Iterate on architecture
+
+Things to probe (when relevant — not a checklist to march through):
+
+- **Repo decomposition** — which existing repos touch this; whether anything new needs to be stood up.
+- **Contract surfaces** — what APIs/queues/jobs need to exist between repos. Doesn't need a spec yet, just identification.
+- **Decision points** — known choices that need an ADR (e.g. "JWT vs session", "polling vs push").
+- **Unknowns** — what they're genuinely unsure about. These become initial `[q]` log entries or `decisions/` placeholders.
+- **Sequencing** — what has to land before what.
+
+Use `AskUserQuestion` for discrete choices when they arise. Most of this phase is plain chat.
+
+### 4c. Commit `## Repos involved` to MISSION.md
+
+Once you've agreed on participating repos:
+
+- Fill `## Repos involved` with `<repo> — <role in this feature>` lines.
+- Show the user the now-complete MISSION.md.
+- Ask: "Ready to announce the feature and let the other repos join? Or more to workshop?"
+
+### 4d. Loop or proceed
+
+If they have more to refine → loop back into 4b. If ready → continue to the wrap-up below.
+
+---
+
+## Wrap-up — Announce + checkpoint
+
+Only runs after phase 4 has produced a complete MISSION.md and the user has confirmed they're ready.
+
+### W1. First positional status
+
+Path: `features/$ARGUMENTS/repos/<your-repo>/<UTC-ISO-timestamp>.positional`. Schema (9 fields, 8 pipes — see README §7 → repo status):
+
+```
+repo|at|summary|current_goal|done|next|blocked_on|contracts_in_play|open_questions
+```
+
+Bootstrap-state line (everything empty but `summary` + `current_goal`):
+
+```
+<repo>|<iso>|Bootstrapped; awaiting kickoff|<one-sentence goal>||||[]|[]
+```
+
+Eyeball the pipe count: 8 pipes, no more.
+
+### W2. `[fy]` announcement
+
+One file at `features/$ARGUMENTS/log/<UTC-ISO-timestamp>-<your-repo>-bootstrap.dsl`. Grammar:
+
+```
+<your-repo> > all [fy] @<iso-with-colons>: Feature bootstrapped — <one-line invitation>. | refs: MISSION.md, repos/<your-repo>/<iso>.positional | <body — 15-40 words MAX>
+```
+
+**Don't recap MISSION** — `refs:` points at it. Body is for *delta* only: which other repos should `/join` (named), time-sensitive context, single critical gotcha. Leave empty if nothing.
+
+### W3. First orchestrator snapshot
+
+You temporarily wear the orchestrator hat for this single write — your repo identity stays the same everywhere else.
+
+Path: `features/$ARGUMENTS/orchestrator/<UTC-ISO-timestamp>-orchestrator.md`. Frontmatter: `{type: orchestrator-snapshot, author: orchestrator, at: <iso-with-colons>, status: on-track, trigger: bootstrap, summary: <one sentence, ≤ 30 words>}`.
+
+Body ≤ 150 words: `## Headline` paragraph saying "Feature bootstrapped — awaiting joins from <named repos>"; `## Where each repo stands` listing the founding repo + expected joiners as "(joining)"; `## Open for the human` = `Nothing — heads-down on initial setup.`. Skip "What shipped" and "Decisions made" — nothing has yet.
+
+### W4. Render the dashboard
+
+```bash
+node framework/bin/render-dashboard.mjs
+```
+
+Pure aggregation, no LLM cost.
+
+### W5. Confirm
+
+Report:
+- Paths scaffolded.
+- Repos that should run `/join $ARGUMENTS` next.
+- This is the last `/bootstrap`; future sessions use `/resume $ARGUMENTS`.
