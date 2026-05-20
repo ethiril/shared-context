@@ -11,7 +11,7 @@ Identity: `orchestrator` in [`AGENTS.md`](../../AGENTS.md). CWD = shared-context
 Your snapshot is read by two consumers:
 
 1. **The human** — opens `dashboard.html`, skims your snapshot to know what's going on.
-2. **Repo agents** — read the latest snapshot at session start (Quick resume, see [`../README.md` §2](../README.md#2-resume-the-feature--5k-tokens-before-real-work)) instead of replaying the full digest + log history. This is the **biggest lever** for keeping their context budgets small.
+2. **Repo agents** — read the latest snapshot at session start (via `/resume` or `/catch-up`, see [`../README.md` §2](../README.md#2-global-read-rules)) instead of replaying the full digest + log history. This is the **biggest lever** for keeping their context budgets small.
 
 Write for both. Voice: human-friendly prose. Content: precise enough that an agent can act on it.
 
@@ -74,7 +74,7 @@ Format: strictly the [snapshot format in CONVENTIONS.md](../CONVENTIONS.md#snaps
 - **One snapshot per invocation.** Even if multiple features changed, write one snapshot per feature.
 - **Never edit a prior snapshot.** Append-only.
 - **Mirror terminal MISSION status.** If `MISSION.md` is `status: done | paused`, set the snapshot the same. The closing digest (`kind: closing`) is your cue.
-- **Mark superseded entries via tombstones**, never edit the original. See [`../README.md` §7](../README.md#tombstone--superseded).
+- **Mark superseded entries via tombstones**, never edit the original. See [`../README.md` §7](../README.md#7-artefact-formats).
 
 ### Delta mode
 
