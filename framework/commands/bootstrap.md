@@ -19,18 +19,18 @@ Bootstrap new feature **$ARGUMENTS** as a *workshop*: scaffold instantly, then w
 
 Do this immediately on invocation. No `AskUserQuestion`, no prose-with-the-user. Just file ops.
 
-### 1a. Permissions + framework version marker (one-time per repo)
+### 1a. Resolve root + framework version marker (one-time per repo)
 
-Read your repo's `CLAUDE.md` to find the *"Cross-repo coordination lives at …"* line — that absolute path is `<SHARED_CONTEXT_ROOT>`. Open `.claude/settings.local.json` in your CWD.
+**Resolve `<SHARED_CONTEXT_ROOT>`** in this order, stopping at the first hit:
 
-**Permissions** — if `permissions.allow` doesn't already include both patterns below, add them (substitute `<SHARED_CONTEXT_ROOT>` with the literal path):
+1. Top-level `shared_context_root` in `~/.claude/settings.json` (written by `framework/bin/setup-claude.sh` on `apply`/`force`). This is the normal path.
+2. Fallback for fresh clones: your repo's `CLAUDE.md` *"Cross-repo coordination lives at …"* line.
 
-- `Read(<SHARED_CONTEXT_ROOT>/**)` — read anywhere in shared-context
-- `Write(<SHARED_CONTEXT_ROOT>/features/**)` — write under `features/` only
+**Permissions live globally now.** The shared-context bundle (`Read`, `Write`, `Edit`, `Bash(node …/render-dashboard.mjs)`, `Bash(date -u *)`) is managed by `setup-claude.sh` in `~/.claude/settings.json` — do **not** add these to per-repo `.claude/settings.local.json`. If you find they're missing on this machine (you'll see permission prompts during this session), tell the user to run `framework/bin/setup-claude.sh` and choose `apply`.
 
-**Framework version marker** — set top-level field `"shared_context_framework_version": 2`. Tells future `/resume` and `/catch-up` sessions you've absorbed README §7 at v2.
+**Framework version marker** — this is per-repo state. Open `.claude/settings.local.json` in your CWD and set top-level field `"shared_context_framework_version": 2`. Tells future `/resume` and `/catch-up` sessions in this repo that you've absorbed README §7 at v2.
 
-Idempotent: skip if both perm patterns (or broader equivalents like a bare `*`) and the version marker are already present. Don't remove existing narrower entries — additive only. If the file doesn't exist, create it with the two patterns under `permissions.allow`, `deny: []`, and the version marker at the top level.
+Idempotent: skip if the marker is already present. If the file doesn't exist, create it with `{"shared_context_framework_version": 2}`.
 
 ### 1b. Scaffold folders + empty MISSION
 
@@ -146,7 +146,23 @@ Once you've agreed on participating repos:
 
 ### 4d. Loop or proceed
 
-If they have more to refine → loop back into 4b. If ready → continue to the wrap-up below.
+If they have more to refine → loop back into 4b. If ready → continue to 4e.
+
+### 4e. Capture unknowns as `[q]` log entries
+
+For each genuine unknown raised during 4b that concerns another repo (or all repos), write one DSL log file per question — single-concern rule, don't bundle.
+
+Path: `features/$ARGUMENTS/log/<UTC-ISO-timestamp>-<your-repo>-q-<short-slug>.dsl`. Grammar:
+
+```
+<your-repo> > <target-repo-or-all> [q] @<iso-with-colons>: <one-line question> | refs: MISSION.md | <body — 15-40 words of context>
+```
+
+- `<target-repo-or-all>` — specific repo if the question is theirs to answer; `all` if any participant could; comma-list if narrowly scoped to a few.
+- Use `[q]` (not `[fy]`). Blocking tone if you need an answer before progressing; non-blocking if it's "while you're here".
+- Don't write `[q]` for things only you can decide — those belong in `decisions/` as ADR placeholders.
+
+These are the questions `/join` will surface and answer in joining repos. If there are no cross-repo unknowns, skip — the new joiners will simply have nothing to ack.
 
 ---
 
