@@ -28,34 +28,62 @@ If you'd rather do it by hand, the four sub-steps are spelled out further down.
 
 ## Slash commands
 
-Nine of them. Features have three phases — set up once, work recurring, wrap up — and the commands map onto those phases.
+Eleven of them. Three setup, five daily work, two situational, one cross-feature, one wrap-up.
 
 ### Set up
+- `/bootstrap <slug>` — founding repo. Scaffolds the feature, drops a `[fy]` announcement, writes the first snapshot.
+- `/join <slug>` — every other repo, once. Writes the repo's first positional + `[fy]`. Safe to re-run (redirects to `/resume`).
 
-- `/bootstrap <slug>` — founding repo only. Scaffolds `features/<slug>/`, writes the first positional status, drops a `[fy]` announcement so other repos can discover the feature, and writes a starter orchestrator snapshot so the dashboard reflects it immediately.
-- `/join <slug>` — every *other* participating repo, once. Writes that repo's first positional + `[fy]` announcement ("owns X, ask me about Y"). Hard-refuses if the repo already has a row — running twice is safe, it'll redirect you to `/resume`.
-
-> Both kick off with a one-time-per-repo permissions step: blanket `Read(<shared-context>/**)` + `Write(<shared-context>/features/**)` get auto-added to that repo's `.claude/settings.local.json` so subsequent reads/writes don't trigger per-file prompts. Idempotent.
-
-### Work (every session, any repo)
-
-- `/resume <slug>` — first message of a session, or anytime you want to clear the inbox. Loads cursor + latest snapshot, applies pivots since you last looked, auto-acks `[fy]`/`[ak]` items, surfaces substantive items (asks, blockers, contract changes) for your decision.
-- `/handoff <slug>` — before `/clear` or session end. Conditionally writes a digest, always overwrites the cursor so the next `/resume` is cheap.
-- `/pivot <slug> <reason>` — direction changed. Writes a `[pv]` log entry, asks which prior decisions/contracts to tombstone, stubs placeholder ADRs for unresolved replacements. Agents will also propose `/pivot` proactively when a session reveals a trigger.
-- `/refresh <slug>` — rebuild orchestrator snapshot + `dashboard.html` + `_index.md`. Synthesised view; the agent may ask 1–2 tight yes/no questions inline.
+### Work (every session)
+- `/resume <slug>` — first message. Clears the inbox; surfaces asks, blockers, contract changes.
+- `/handoff <slug>` — before `/clear`. Digest if useful; always writes the cursor.
+- `/pivot <slug> <reason>` — direction shifted. Tombstones stale decisions/contracts.
+- `/refresh <slug>` — rebuild orchestrator snapshot + `dashboard.html` + `_index.md`.
+- `/tighten <slug>` — review + refactor + test the current branch's changes.
 
 ### Situational
+- `/catch-up <slug>` — cold start after a long break. Deeper read than `/resume`.
+- `/audit <slug>` — full history including superseded entries. Use sparingly.
 
-- `/catch-up <slug>` — cold start after a long break. Same shape as `/resume` but reads deeper (decisions, contracts, `_index.md`).
-- `/audit <slug>` — full history walk, including superseded entries and pivot-retired log lines. Use sparingly.
+### Cross-feature
+- `/global-add <project> <category> <slug>` — add or update a `globals/<project>/` entry shared across features.
 
 ### Wrap up
+- `/close-project <slug> [done|paused] <reason>` — flips `MISSION.md` status; dashboard moves the feature to Archived.
 
-- `/close-project <slug> [done|paused] <reason>` — flips `MISSION.md` status, writes a closing digest. Dashboard moves the feature to the Archived tab.
+First `/bootstrap` or `/join` per repo auto-adds blanket `Read(<shared-context>/**)` + `Write(<shared-context>/features/**)` to that repo's `.claude/settings.local.json`. Idempotent. Agent-side specs: [`framework/README.md#slash-commands`](./framework/README.md#slash-commands).
 
-Agent-side spec for each command lives in [`framework/README.md#slash-commands`](./framework/README.md#slash-commands).
+Between commands, agents append `log/*.dsl`, `repos/<self>/*.positional`, `contracts/<api>/*.dsl`, and `decisions/*.md` as side-effects of work. Hooks keep `dashboard.html` current.
 
-In between commands, agents append `log/<iso>-<repo>-<slug>.dsl` entries for cross-repo events, refresh `repos/<self>/<iso>.positional` when status changes, write `contracts/<api>/<iso>-<repo>-v<X.Y.Z>.dsl` for API changes, and `decisions/` for non-obvious choices. Hooks keep `dashboard.html` current automatically.
+---
+
+## The optimal cycle
+
+```
+  once per feature                every session, every repo
+  ────────────────                ─────────────────────────
+  /bootstrap ──► /join×N ──► /resume ──► work + logs
+                                ▲            │
+                                │            ├──► /pivot     (direction shift)
+                                │            ├──► /refresh   (regen dashboard)
+                                │            ▼
+                                └── /clear ◄── /handoff
+                                                            
+                                                  ──► /close-project
+                                                      (ships or paused)
+```
+
+**Bootstrap is rare; the loop is everything.** Most days you only touch `/resume`, `/handoff`, and occasionally `/pivot` or `/refresh`. The other commands earn their keep on edge days.
+
+**Per session, per repo.** Open with `/resume <slug>`. Close with `/handoff <slug>` then `/clear`. Skipping handoff makes the next resume expensive — the cursor is what keeps it cheap.
+
+**Mid-session, ask for a digest at milestones.** Not only at session end. A mid-session digest pays back 10× on the next `/resume`. Run `/refresh` when the dashboard feels stale.
+
+**Direction shifts use `/pivot` — never silent abandonment.** If the plan changes — scope shrinks, an API approach is wrong, a decision flips — `/pivot <reason>` writes the tombstones so other repos stop building on retired assumptions.
+
+**Cross-repo handshakes have shapes.** Blocking ask = `[q]` log with `to: <repo>`. Answer = `[a]` with `refs:`. Long-form scoped work = `tickets/<slug>.md`, referenced from logs. Contract changes always ship as **contract version file + `[cc]` log entry** — never one without the other.
+
+**Wrap up explicitly.** `/close-project done|paused <reason>` when the feature ships or stalls. The folder stays for the audit trail; dashboard archives it.
 
 ---
 
@@ -152,9 +180,7 @@ Append a row: identity (lowercase kebab), absolute CWD, one-line role. Until a r
 
 - **Name the feature explicitly at session start.** `/resume <slug>`, not "resume." Don't make the agent guess.
 - **`/join` is once per repo per feature.** After that the verb is `/resume`. Running `/join` twice is safe — hard-refuses with a nudge.
-- **Ask for a digest at milestones**, not only at session end. Mid-session digests pay back 10× on the next resume.
 - **`/clear` between features, not within.** Within a feature, the cursor + digest carry continuity.
-- **Pivot when direction shifts.** Either you trigger `/pivot <slug> <reason>`, or the agent proposes it after spotting a trigger. Same protocol entry either way.
 - **Use `blocked_on` to make waits visible.** When a repo finishes its part but the rest isn't done, write a new positional with `current_goal: idle — waiting on <X>` and a `blocked_on` row. Dashboard pins it under "Needs your attention" automatically. See `framework/CONVENTIONS.md` → "Signalling I'm done with my part."
 - **Confirm the checkpoint after `/clear` + `/resume`.** *"Tell me which snapshot you read and which contract versions you're synced against."* Catches stale-state bugs in 5 seconds.
 - **One agent per repo at a time.** Cross-repo parallelism is the point; multiple agents inside the same repo race on `repos/<self>/`.
