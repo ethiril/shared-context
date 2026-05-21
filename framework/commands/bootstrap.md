@@ -72,7 +72,21 @@ Once the human has given you a substantive answer (≥ 2-3 sentences, you unders
 - Distil their answer into a `## Goal` paragraph (one paragraph, their words wherever possible).
 - Edit `features/$ARGUMENTS/MISSION.md` — replace the `<One paragraph...>` placeholder under `## Goal` with your distillation. Also fill the `created_at` and `created_by` frontmatter fields.
 - Tell the user: "Captured the goal. Read it back to me — does this match what you said?" Show the paragraph inline.
-- If they correct it, re-edit. Then go to phase 3.
+- If they correct it, re-edit. Then go to 2d.
+
+### 2d. Project association (optional)
+
+Check whether this feature belongs to an existing umbrella project under `globals/`:
+
+```bash
+ls globals/ 2>/dev/null
+```
+
+- **Existing projects found:** ask via `AskUserQuestion` — "Should this feature declare a project?" Options: each existing project ID + "Standalone (no project)". If they pick one, add `project: <id>` to MISSION frontmatter (right after `feature: <slug>`).
+- **No projects yet:** skip silently. Don't propose creating one — feature work shouldn't be derailed by project bootstrap.
+- **One project + the goal clearly references it:** still ask, but make the matching project the recommended option.
+
+This is a 30-second step. If it takes longer, the answer is probably "Standalone" — pick that and move on.
 
 ---
 

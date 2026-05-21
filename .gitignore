@@ -15,7 +15,7 @@
 /framework/commands/*.html
 /framework/templates/*.html
 /framework/examples/index.html
-
+/globals
 # Local Claude Code config (contains absolute paths).
 .claude/settings.local.json
 

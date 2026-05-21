@@ -24,7 +24,7 @@ Resume on feature **$ARGUMENTS**. Light state-load → apply pivots → pull inb
 
 Read in order, stop when you have enough:
 
-1. `features/$ARGUMENTS/MISSION.md` — feature identity.
+1. `features/$ARGUMENTS/MISSION.md` — feature identity. **If frontmatter has `project: <id>`,** also read `globals/<id>/PROJECT.md` + `globals/<id>/_index.md` on the first resume of a session (cheap — index is a slug+keywords+summary table). On subsequent resumes within the same session, skip. **Never bulk-load** entry files from `architecture/`/`conventions/`/`glossary/`; pull a specific entry only when your task hits matching keywords (README §2).
 2. Latest file in `features/$ARGUMENTS/orchestrator/` — your checkpoint. Treat everything older than its `at:` as absorbed. Fall back to newest `digest/` if no snapshot.
 3. `features/$ARGUMENTS/cursors/<self>/current.md` — your bookmark (`last_log_read`, `last_pivot_read`, etc). Legacy fallback: latest timestamped file. No cursor: treat everything newer than the checkpoint's `at:` as new.
 4. `features/$ARGUMENTS/repos/<self>/` newest file (`.positional`, fallback `.md`) — your task brief.
