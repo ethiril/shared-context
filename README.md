@@ -1,14 +1,14 @@
-> **Agent reading this? Stop.** This file is for humans. Your protocol is [`framework/README.md`](./framework/README.md) — go there.
+> If you're an agent reading this, stop here. This file is written for humans, and your protocol lives in [`framework/README.md`](./framework/README.md).
 
 # shared-context
 
-Mission Control for multi-repo Claude Code agents. Each agent works in its own repo and gossips with the others by appending timestamped files into per-feature folders here. You — the human — open `dashboard.html` and stay aligned without parsing logs.
+Mission Control for multi-repo Claude Code agents. Each agent works in its own repo and gossips with the others by appending timestamped files into per-feature folders here. As the human you open `dashboard.html` to stay aligned without having to parse logs.
 
 ---
 
 ## Setup
 
-Two scripts. Step 1 once per machine (slash commands are user-global). Step 2 once per participating repo.
+There are two scripts. Step 1 runs once per machine since slash commands are user-global, and step 2 runs once per participating repo.
 
 ```bash
 ./framework/bin/setup-claude.sh                                                       # step 1 (interactive)
@@ -17,10 +17,10 @@ Two scripts. Step 1 once per machine (slash commands are user-global). Step 2 on
 
 What they do:
 
-- **Step 1** symlinks `framework/commands/*.md` into `~/.claude/commands/` so Claude Code picks them up in every CWD. Drops you into an interactive menu — nothing on disk changes until you hit `a` (apply) or `f` (force). `s` shows per-file state, `p` shows target paths, `d` diffs.
-- **Step 2** patches the repo's `.claude/settings.local.json` (permissions + hooks + framework version marker), appends a pointer line to its `CLAUDE.md`, and adds its row to [`AGENTS.md`](./AGENTS.md).
+- **Step 1** symlinks `framework/commands/*.md` into `~/.claude/commands/` so Claude Code picks them up in every CWD. It drops you into an interactive menu, and nothing on disk changes until you hit `a` to apply or `f` to force. The other keys are `s` for per-file state, `p` for target paths, and `d` for diffs.
+- **Step 2** patches the repo's `.claude/settings.local.json` with permissions, hooks, and a framework version marker, appends a pointer line to its `CLAUDE.md`, and adds its row to [`AGENTS.md`](./AGENTS.md).
 
-Both are idempotent. Restart any open Claude sessions afterwards. That's the whole setup.
+Both scripts are idempotent so you can safely re-run them. Restart any open Claude sessions afterwards and that's the whole setup.
 
 If you'd rather do it by hand, the four sub-steps are spelled out further down.
 
@@ -28,34 +28,72 @@ If you'd rather do it by hand, the four sub-steps are spelled out further down.
 
 ## Slash commands
 
-Nine of them. Features have three phases — set up once, work recurring, wrap up — and the commands map onto those phases.
+There are eleven commands in total: three for setup, five for daily work, two situational, one cross-feature, and one for wrap-up.
 
 ### Set up
+- `/bootstrap <slug>` — founding repo. Scaffolds the feature, drops a `[fy]` announcement, writes the first snapshot.
+- `/join <slug>` — every other repo, once. Writes the repo's first positional + `[fy]`. Safe to re-run (redirects to `/resume`).
 
-- `/bootstrap <slug>` — founding repo only. Scaffolds `features/<slug>/`, writes the first positional status, drops a `[fy]` announcement so other repos can discover the feature, and writes a starter orchestrator snapshot so the dashboard reflects it immediately.
-- `/join <slug>` — every *other* participating repo, once. Writes that repo's first positional + `[fy]` announcement ("owns X, ask me about Y"). Hard-refuses if the repo already has a row — running twice is safe, it'll redirect you to `/resume`.
-
-> Both kick off with a one-time-per-repo permissions step: blanket `Read(<shared-context>/**)` + `Write(<shared-context>/features/**)` get auto-added to that repo's `.claude/settings.local.json` so subsequent reads/writes don't trigger per-file prompts. Idempotent.
-
-### Work (every session, any repo)
-
-- `/resume <slug>` — first message of a session, or anytime you want to clear the inbox. Loads cursor + latest snapshot, applies pivots since you last looked, auto-acks `[fy]`/`[ak]` items, surfaces substantive items (asks, blockers, contract changes) for your decision.
-- `/handoff <slug>` — before `/clear` or session end. Conditionally writes a digest, always overwrites the cursor so the next `/resume` is cheap.
-- `/pivot <slug> <reason>` — direction changed. Writes a `[pv]` log entry, asks which prior decisions/contracts to tombstone, stubs placeholder ADRs for unresolved replacements. Agents will also propose `/pivot` proactively when a session reveals a trigger.
-- `/refresh <slug>` — rebuild orchestrator snapshot + `dashboard.html` + `_index.md`. Synthesised view; the agent may ask 1–2 tight yes/no questions inline.
+### Work (every session)
+- `/resume <slug>` — first message. Clears the inbox; surfaces asks, blockers, contract changes.
+- `/handoff <slug>` — before `/clear`. Digest if useful; always writes the cursor.
+- `/pivot <slug> <reason>` — direction shifted. Tombstones stale decisions/contracts.
+- `/refresh <slug>` — rebuild orchestrator snapshot + `dashboard.html` + `_index.md`.
+- `/tighten <slug>` — review + refactor + test the current branch's changes.
 
 ### Situational
+- `/catch-up <slug>` — cold start after a long break. Deeper read than `/resume`.
+- `/audit <slug>` — full history including superseded entries. Use sparingly.
 
-- `/catch-up <slug>` — cold start after a long break. Same shape as `/resume` but reads deeper (decisions, contracts, `_index.md`).
-- `/audit <slug>` — full history walk, including superseded entries and pivot-retired log lines. Use sparingly.
+### Cross-feature
+- `/global-add <project> <category> <slug>` — add or update a `globals/<project>/` entry shared across features.
 
 ### Wrap up
+- `/close-project <slug> [done|paused] <reason>` — flips `MISSION.md` status; dashboard moves the feature to Archived.
 
-- `/close-project <slug> [done|paused] <reason>` — flips `MISSION.md` status, writes a closing digest. Dashboard moves the feature to the Archived tab.
+The first `/bootstrap` or `/join` per repo auto-adds blanket `Read(<shared-context>/**)` + `Write(<shared-context>/features/**)` permissions to that repo's `.claude/settings.local.json`, and it's idempotent so you can safely re-run it. Agent-side specs for each command live in [`framework/README.md#slash-commands`](./framework/README.md#slash-commands).
 
-Agent-side spec for each command lives in [`framework/README.md#slash-commands`](./framework/README.md#slash-commands).
+Between commands, agents append `log/*.dsl`, `repos/<self>/*.positional`, `contracts/<api>/*.dsl`, and `decisions/*.md` files as side-effects of their work. Hooks keep `dashboard.html` up to date automatically.
 
-In between commands, agents append `log/<iso>-<repo>-<slug>.dsl` entries for cross-repo events, refresh `repos/<self>/<iso>.positional` when status changes, write `contracts/<api>/<iso>-<repo>-v<X.Y.Z>.dsl` for API changes, and `decisions/` for non-obvious choices. Hooks keep `dashboard.html` current automatically.
+---
+
+## The optimal cycle
+
+```
+                  [ unborn ]
+                      │
+                      │  /bootstrap + /join×N
+                      ▼
+       ┌──────────────────────────────┐
+       │             IDLE             │ ◄────┐
+       │  no active session anywhere  │      │
+       └──────────────────────────────┘      │
+                      │                      │
+                      │  /resume             │  /handoff → /clear
+                      ▼                      │
+       ┌──────────────────────────────┐      │
+       │        ACTIVE SESSION        │      │
+       │  work + logs;                │      │
+       │  /pivot, /refresh, /tighten  │      │
+       │  are in-state actions        │ ─────┘
+       └──────────────────────────────┘
+                      │
+                      │  /close-project [done|paused]
+                      ▼
+                  [ ARCHIVED ]
+```
+
+Bootstrap is only used to kick off a feature. Daily use is the loop of commands, usually you would only use `/resume`, `/handoff`, and occasionally `/pivot` and `/refresh` once you want a fresh dashboard. `/tighten` would only come towards the end of feature development, the other commands are self explanatory.
+
+Per session and per repo, you open with `/resume <slug>` and close with `/handoff <slug>` then `/clear`. If you skip the handoff the next resume gets expensive, since the cursor is what keeps it cheap.
+
+Ask for a digest at milestones, not only at session end. A mid-session digest pays back 10× on the next `/resume`. Run `/refresh` whenever the dashboard feels stale.
+
+When direction shifts, use `/pivot` rather than silently abandoning the prior plan. If the plan changes — say scope shrinks, an API approach turns out wrong, or a decision flips — `/pivot <reason>` writes the tombstones so other repos stop building on retired assumptions.
+
+Cross-repo handshakes follow set shapes. A blocking ask is a `[q]` log with `to: <repo>`, and the answer is an `[a]` log with `refs:`. Long-form scoped work goes in `tickets/<slug>.md` and is referenced from logs. Contract changes always ship as a contract version file plus a `[cc]` log entry, never one without the other.
+
+Wrap up explicitly with `/close-project done|paused <reason>` when the feature ships or stalls. The folder stays for the audit trail and the dashboard archives it.
 
 ---
 
@@ -71,7 +109,7 @@ shared-context/
 └── .claude/          ← local Claude config
 ```
 
-The **framework** is shareable across teams. The repo root is **your team's** roster, features, and dashboard.
+The **framework** folder is shareable across teams, while the repo root holds **your team's** roster, features, and dashboard.
 
 ---
 
@@ -81,18 +119,18 @@ The **framework** is shareable across teams. The repo root is **your team's** ro
 open dashboard.html
 ```
 
-Items needing your attention pin to the top. Two sources:
+Items needing your attention pin to the top, and there are two sources that feed them.
 
-- **Orchestrator snapshot's "Open for the human"** — rich prose, refreshed when you run `/refresh <slug>`.
-- **Per-repo positional `blocked_on`** — terse, surfaces the moment a repo writes a positional with a non-empty blocker. No `/refresh` needed.
+- The **orchestrator snapshot's "Open for the human"** section — rich prose, refreshed whenever you run `/refresh <slug>`.
+- The **per-repo positional `blocked_on`** field — terse, and it surfaces the moment a repo writes a positional with a non-empty blocker, so no `/refresh` is needed.
 
-Per-feature pages live alongside. The latest orchestrator snapshot under each feature is what you skim if you've been away a while.
+Per-feature pages live alongside the main view, and the latest orchestrator snapshot under each feature is what you would skim if you've been away for a while.
 
 ---
 
 ## Setup by hand
 
-If the scripts feel like too much magic, here's exactly what they do.
+If the scripts feel like too much magic, here's exactly what they do under the hood.
 
 ### 1. Symlink the slash commands
 
@@ -102,13 +140,13 @@ mkdir -p ~/.claude/commands
 ln -sf "$SHARED_CONTEXT_ROOT"/framework/commands/*.md ~/.claude/commands/
 ```
 
-Only files matching `framework/commands/*.md` get touched — anything else already in `~/.claude/commands/` is left alone. Restart any open Claude sessions afterwards.
+Only files matching `framework/commands/*.md` get touched, so anything else already in `~/.claude/commands/` is left alone. Restart any open Claude sessions afterwards.
 
-Optional env overrides: `CLAUDE_COMMANDS_DIR` (default `~/.claude/commands`), `NO_COLOR=1` to disable colors.
+There are two optional environment variables you can set: `CLAUDE_COMMANDS_DIR` overrides the default `~/.claude/commands` target, and `NO_COLOR=1` disables colors.
 
 ### 2. Wire the hooks into each repo
 
-Two hooks. Paste this as a sibling of the existing `permissions` block in `.claude/settings.local.json`, substituting the absolute path:
+There are two hooks to add. Paste the block below as a sibling of the existing `permissions` block in `.claude/settings.local.json`, substituting in the absolute path:
 
 ```jsonc
 "hooks": {
@@ -131,10 +169,10 @@ Two hooks. Paste this as a sibling of the existing `permissions` block in `.clau
 }
 ```
 
-- `hook-lint.sh` keeps new files under `features/<slug>/` inside per-artifact word budgets. Warns on stderr by default; set `SHARED_CONTEXT_LINT_MODE=block` to make violations block the write.
-- `hook-render.sh` regenerates `dashboard.html` from raw state. Pure aggregation, no LLM cost.
+- `hook-lint.sh` keeps new files under `features/<slug>/` inside per-artifact word budgets. It warns on stderr by default, but you can set `SHARED_CONTEXT_LINT_MODE=block` to make violations block the write.
+- `hook-render.sh` regenerates `dashboard.html` from raw state. It's pure aggregation with no LLM cost.
 
-Optional third hook — `framework/bin/hook-orchestrate.sh` under PostToolUse auto-snapshots on every digest write. Off by default; `/refresh` is the controlled alternative.
+There's an optional third hook, `framework/bin/hook-orchestrate.sh` under PostToolUse, which auto-snapshots on every digest write. It's off by default, with `/refresh` as the controlled alternative.
 
 ### 3. Point each repo's `CLAUDE.md` at this folder
 
@@ -144,27 +182,25 @@ One line:
 
 ### 4. Add the repo to `AGENTS.md`
 
-Append a row: identity (lowercase kebab), absolute CWD, one-line role. Until a repo is listed there, its agent has no identity in the system and can't write valid filenames.
+Append a row with the repo's identity (lowercase kebab), its absolute CWD, and a one-line role. Until a repo is listed there its agent has no identity in the system and can't write valid filenames.
 
 ---
 
 ## Working tips
 
-- **Name the feature explicitly at session start.** `/resume <slug>`, not "resume." Don't make the agent guess.
-- **`/join` is once per repo per feature.** After that the verb is `/resume`. Running `/join` twice is safe — hard-refuses with a nudge.
-- **Ask for a digest at milestones**, not only at session end. Mid-session digests pay back 10× on the next resume.
-- **`/clear` between features, not within.** Within a feature, the cursor + digest carry continuity.
-- **Pivot when direction shifts.** Either you trigger `/pivot <slug> <reason>`, or the agent proposes it after spotting a trigger. Same protocol entry either way.
-- **Use `blocked_on` to make waits visible.** When a repo finishes its part but the rest isn't done, write a new positional with `current_goal: idle — waiting on <X>` and a `blocked_on` row. Dashboard pins it under "Needs your attention" automatically. See `framework/CONVENTIONS.md` → "Signalling I'm done with my part."
-- **Confirm the checkpoint after `/clear` + `/resume`.** *"Tell me which snapshot you read and which contract versions you're synced against."* Catches stale-state bugs in 5 seconds.
-- **One agent per repo at a time.** Cross-repo parallelism is the point; multiple agents inside the same repo race on `repos/<self>/`.
-- **Don't hand-edit anything under `features/<slug>/`.** Append-only is structurally enforced for agents but not for humans — breaking it desyncs everyone.
+- **Name the feature explicitly at session start.** Use `/resume <slug>` rather than just "resume" so the agent isn't left guessing.
+- **`/join` is once per repo per feature.** After that the verb is `/resume`. Running `/join` twice is safe since it hard-refuses with a nudge.
+- **`/clear` between features, not within them.** Within a feature the cursor and digest carry continuity for you.
+- **Use `blocked_on` to make waits visible.** When a repo finishes its part but the rest isn't done, write a new positional with `current_goal: idle — waiting on <X>` and a `blocked_on` row. The dashboard pins it under "Needs your attention" automatically. See `framework/CONVENTIONS.md` → "Signalling I'm done with my part."
+- **Confirm the checkpoint after `/clear` + `/resume`.** Ask the agent *"tell me which snapshot you read and which contract versions you're synced against"* and you'll catch stale-state bugs in 5 seconds.
+- **One agent per repo at a time.** Cross-repo parallelism is the point, but multiple agents inside the same repo will race on `repos/<self>/`.
+- **Don't hand-edit anything under `features/<slug>/`.** Append-only is structurally enforced for agents but not for humans, and breaking it desyncs everyone.
 
 ---
 
 ## Where to dig deeper
 
-- [`framework/README.md`](./framework/README.md) — agent protocol. (Agents read this; you probably don't need to.)
-- [`framework/CONVENTIONS.md`](./framework/CONVENTIONS.md) — Mission Control conventions (snapshot format, writing-for-agents rules).
-- [`framework/orchestrator/brief.md`](./framework/orchestrator/brief.md) — orchestrator role definition. (For when you're curious how `/refresh` works under the hood.)
-- [`framework/examples/`](./framework/examples/) — worked example feature.
+- [`framework/README.md`](./framework/README.md) — the agent protocol. Agents read this, so you probably don't need to.
+- [`framework/CONVENTIONS.md`](./framework/CONVENTIONS.md) — Mission Control conventions, including snapshot format and writing-for-agents rules.
+- [`framework/orchestrator/brief.md`](./framework/orchestrator/brief.md) — the orchestrator role definition, for when you're curious how `/refresh` works under the hood.
+- [`framework/examples/`](./framework/examples/) — a complete worked example feature.
