@@ -70,6 +70,7 @@ Each command file owns its protocol. This table is just the index.
 | `/handoff <slug>`                      | Before `/clear`                                                       |
 | `/pivot <slug> <reason>`               | Direction changing                                                    |
 | `/refresh <slug>`                      | Update the human dashboard now                                        |
+| `/tighten <slug>`                      | Review + refactor + test-verify the current branch's changes          |
 | `/close-project <slug> [done\|paused]` | Wrapping up                                                           |
 
 ---

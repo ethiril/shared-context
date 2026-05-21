@@ -10,18 +10,18 @@ Join feature **$ARGUMENTS** — announce your repo's presence and write your fir
 
 **Once-per-session (skip if already loaded):** `framework/README.md` (especially §7 — artefact formats), `AGENTS.md` → identify yourself from CWD.
 
-### 0. Ensure shared-context permissions + framework version marker (one-time per repo)
+### 0. Resolve root + framework version marker (one-time per repo)
 
-Read your repo's `CLAUDE.md` to find the *"Cross-repo coordination lives at …"* line — that absolute path is `<SHARED_CONTEXT_ROOT>`. Open `.claude/settings.local.json` in your CWD. Do both of the below; Edit the file as needed:
+**Resolve `<SHARED_CONTEXT_ROOT>`** in this order, stopping at the first hit:
 
-**Permissions** — if `permissions.allow` doesn't already include both patterns below, add them (substitute `<SHARED_CONTEXT_ROOT>` with the literal path):
+1. Top-level `shared_context_root` in `~/.claude/settings.json` (written by `framework/bin/setup-claude.sh` on `apply`/`force`). This is the normal path.
+2. Fallback for fresh clones: your repo's `CLAUDE.md` *"Cross-repo coordination lives at …"* line.
 
-- `Read(<SHARED_CONTEXT_ROOT>/**)` — read anywhere in shared-context
-- `Write(<SHARED_CONTEXT_ROOT>/features/**)` — write under `features/` only
+**Permissions live globally now.** The shared-context bundle (`Read`, `Write`, `Edit`, `Bash(node …/render-dashboard.mjs)`, `Bash(date -u *)`) is managed by `setup-claude.sh` in `~/.claude/settings.json` — do **not** add these to per-repo `.claude/settings.local.json`. If you hit permission prompts for any of those during this session, the bundle isn't enrolled on this machine yet; tell the user to run `framework/bin/setup-claude.sh` and choose `apply`.
 
-**Framework version marker** — set a top-level field: `"shared_context_framework_version": 2`. This tells future `/resume` and `/catch-up` sessions in this repo that you've absorbed README §7 at v2, so they can skip re-reading it. Bump the value when README §7 declares a new `FRAMEWORK_VERSION`.
+**Framework version marker** — this is per-repo state. Open `.claude/settings.local.json` in your CWD and set top-level field `"shared_context_framework_version": 2`. Tells future `/resume` and `/catch-up` sessions in this repo that you've absorbed README §7 at v2, so they can skip re-reading it. Bump the value when README §7 declares a new `FRAMEWORK_VERSION`.
 
-**Idempotent:** skip if both perm patterns (or broader equivalents like a bare `*`) and the version marker are already present. Don't remove existing narrower entries — additive only. If `.claude/settings.local.json` doesn't exist, create it with the two patterns under `permissions.allow`, an empty `deny: []`, and the version marker at the top level. After this step, shared-context reads/writes auto-approve without per-file prompts.
+Idempotent: skip if the marker is already present. If the file doesn't exist, create it with `{"shared_context_framework_version": 2}`.
 
 ### 1. Hard-check: not already joined
 
@@ -66,7 +66,41 @@ Write a single DSL line as one file: `features/$ARGUMENTS/log/<UTC-ISO-timestamp
 - `<topic-list>` — 2-4 short tags other agents could ask you about.
 - Body — **only if** there's something other agents need beyond what's in your positional row (e.g. a time window when you're available, a single critical caveat). **Don't recap your AGENTS.md role or your positional `current_goal`** — both are already linked.
 
-### 5. Cursor — fresh
+### 5. Answer or ack inbound `[q]` entries
+
+Bootstrap (and any later session) may have written `[q]` log entries directed at you. Surface and resolve them now while you're orienting — don't push this to the next `/resume`.
+
+**Scan.** Read every `features/$ARGUMENTS/log/*.dsl` file; pick out lines whose `[kind]` is `q` and whose `to` field is `<your-repo>`, `all`, or a comma-list containing `<your-repo>`. Skip any `[q]` that already has a downstream `[a]` referencing it via `refs:`.
+
+**For each unresolved `[q]`:**
+
+1. **Try to answer from local context** — `AGENTS.md`, repo `CLAUDE.md`, code, docs. If the answer is unambiguous, write one DSL log file:
+
+   ```
+   features/$ARGUMENTS/log/<UTC-ISO-timestamp>-<your-repo>-a-<short-slug>.dsl
+   ```
+
+   Grammar:
+
+   ```
+   <your-repo> > <original-asker> [a] @<iso-with-colons>: <one-line answer> | refs: <original-q-filename> | <body — 15-40 words, optional supporting detail>
+   ```
+
+2. **If you can't answer confidently**, do two writes:
+
+   - First an `[ak]` so the asker sees the question landed:
+
+     ```
+     <your-repo> > <original-asker> [ak] @<iso>: Seen — gathering an answer from the human. | refs: <original-q-filename> |
+     ```
+
+   - Then prompt the human inline (use `AskUserQuestion` with the question as the prompt and 2–3 plausible options derived from your repo's domain, plus the implicit "Other"). On their response, write an `[a]` file using the same grammar as case 1, with `refs:` pointing at the original `[q]` (not the `[ak]`).
+
+**One file per ack/answer.** Don't bundle two questions into one log file. Eyeball each emitted line: it must contain exactly one `|` between `summary` and `refs:`, and one between `refs:` and `body` (body may be empty).
+
+If the scan finds nothing, this step is a no-op — move on.
+
+### 6. Cursor — fresh
 
 Write `features/$ARGUMENTS/cursors/<your-repo>/current.md` (YAML+body; rolling, overwrite-in-place):
 
@@ -74,17 +108,17 @@ Write `features/$ARGUMENTS/cursors/<your-repo>/current.md` (YAML+body; rolling, 
 ---
 at: <iso-with-colons>
 last_checkpoint_read: <orchestrator-snapshot-or-digest-filename-from-step-2>
-last_log_read: <your-own-join-filename-or-@at-iso>
+last_log_read: <newest-log-filename-you-touched-or-your-own-join-filename>
 last_pivot_read: null
 contracts_synced: []
 last_decision_read: null
 ---
 ```
 
-Body: one short line — e.g. "joined; nothing pending yet."
+Body: one short line — e.g. "joined; nothing pending yet." or "joined; answered N inbound [q]s."
 
-### 6. Confirm
+### 7. Confirm
 
-One sentence: which paths you wrote (positional, log entry, cursor), and the next concrete step (usually `/resume $ARGUMENTS` to process any inbound asks once other repos see your join announcement).
+One sentence: which paths you wrote (positional, join announcement, any `[a]`/`[ak]` files, cursor), and the next concrete step (usually `/resume $ARGUMENTS` to process any inbound asks once other repos see your join announcement).
 
 **Onboarding done.** This is the last time you'll run `/join` for this feature. Subsequent sessions in this repo use `/resume $ARGUMENTS` (or `/catch-up $ARGUMENTS` if you've been away).

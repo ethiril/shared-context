@@ -13,6 +13,16 @@
 # Color output is automatic when stdout is a terminal. Set NO_COLOR=1 (or
 # pipe the output) to disable.
 
+# Re-exec under non-POSIX bash if needed. macOS /bin/sh is bash-in-POSIX-mode:
+# $BASH_VERSION is still set, but process substitution and other features this
+# script uses are disabled, so the parser would fail on function bodies below.
+case ":${SHELLOPTS:-}:" in
+  *":posix:"*) exec bash "$0" "$@" ;;
+esac
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec bash "$0" "$@"
+fi
+
 set -eo pipefail
 
 # ---- color palette ----
@@ -53,6 +63,7 @@ script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 shared_context_root="${SHARED_CONTEXT_ROOT:-$(cd -- "$script_directory/../.." && pwd)}"
 source_directory="$shared_context_root/framework/commands"
 destination_directory="${CLAUDE_COMMANDS_DIR:-$HOME/.claude/commands}"
+claude_settings_file="${CLAUDE_SETTINGS_FILE:-$HOME/.claude/settings.json}"
 
 if [[ ! -d "$source_directory" ]]; then
   echo "source directory missing: $source_directory" >&2
@@ -171,6 +182,235 @@ outcome_color() {
   esac
 }
 
+# ---- global settings helpers ----
+#
+# Maintain a top-level "shared_context_root" key in
+# $claude_settings_file so /bootstrap and /join can locate the
+# shared-context root without grepping CLAUDE.md. Idempotent — only
+# rewrites the file when the value is missing or differs.
+# Reads via jq if available, python3 as fallback.
+
+read_global_shared_context_root() {
+  if [[ ! -f "$claude_settings_file" ]]; then
+    return
+  fi
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '.shared_context_root // ""' "$claude_settings_file" 2>/dev/null
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 - "$claude_settings_file" <<'PY'
+import json, sys
+try:
+    print(json.load(open(sys.argv[1])).get("shared_context_root", ""))
+except Exception:
+    print("")
+PY
+  fi
+}
+
+write_global_shared_context_root() {
+  local current_value
+  current_value="$(read_global_shared_context_root)"
+  if [[ "$current_value" == "$shared_context_root" ]]; then
+    printf "  %-22s %s%s%s %s%s%s\n" \
+      "shared_context_root" \
+      "$color_dim" "skip     " "$color_reset" \
+      "$color_dim" "(already set in $claude_settings_file)" "$color_reset"
+    return
+  fi
+
+  mkdir -p -- "$(dirname -- "$claude_settings_file")"
+
+  if command -v jq >/dev/null 2>&1; then
+    local tmp_file
+    tmp_file="$(mktemp)"
+    if [[ -f "$claude_settings_file" ]]; then
+      jq --arg root "$shared_context_root" '. + {shared_context_root: $root}' "$claude_settings_file" > "$tmp_file"
+    else
+      jq -n --arg root "$shared_context_root" '{shared_context_root: $root}' > "$tmp_file"
+    fi
+    mv "$tmp_file" "$claude_settings_file"
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 - "$claude_settings_file" "$shared_context_root" <<'PY'
+import json, sys
+path, root = sys.argv[1], sys.argv[2]
+try:
+    with open(path) as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        data = {}
+except Exception:
+    data = {}
+data["shared_context_root"] = root
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PY
+  else
+    printf "  %-22s %s%s%s %s%s%s\n" \
+      "shared_context_root" \
+      "$color_red" "blocked  " "$color_reset" \
+      "$color_dim" "(neither jq nor python3 available; set the key by hand)" "$color_reset"
+    return
+  fi
+
+  local verb_label="create"
+  local detail="(wrote to $claude_settings_file)"
+  if [[ -n "$current_value" ]]; then
+    verb_label="repoint"
+    detail="(was $current_value)"
+  fi
+  printf "  %-22s %s%s%s %s%s%s\n" \
+    "shared_context_root" \
+    "$color_green" "$(printf '%-9s' "$verb_label")" "$color_reset" \
+    "$color_dim" "$detail" "$color_reset"
+}
+
+# Bundle of permission patterns Claude Code agents in any repo need to
+# operate against shared-context without per-call prompts. Substitutes
+# $shared_context_root into each path-bearing entry.
+build_shared_context_permission_patterns() {
+  printf '%s\n' \
+    "Read($shared_context_root/**)" \
+    "Write($shared_context_root/features/**)" \
+    "Edit($shared_context_root/features/**)" \
+    "Bash(node $shared_context_root/framework/bin/render-dashboard.mjs)" \
+    "Bash(date -u *)"
+}
+
+# Add any missing pattern from the bundle into permissions.allow in
+# $claude_settings_file. Idempotent — never duplicates, never removes
+# unrelated entries. Prints a per-pattern add/skip line.
+write_global_shared_context_permissions() {
+  local patterns=()
+  while IFS= read -r line; do patterns+=("$line"); done < <(build_shared_context_permission_patterns)
+
+  mkdir -p -- "$(dirname -- "$claude_settings_file")"
+
+  if command -v jq >/dev/null 2>&1; then
+    local current_array_json
+    if [[ -f "$claude_settings_file" ]]; then
+      current_array_json="$(jq -c '.permissions.allow // []' "$claude_settings_file" 2>/dev/null || echo '[]')"
+    else
+      current_array_json="[]"
+    fi
+
+    local missing_patterns=()
+    local p
+    for p in "${patterns[@]}"; do
+      if echo "$current_array_json" | jq -e --arg p "$p" 'any(.[]; . == $p)' >/dev/null 2>&1; then
+        printf "  %s%-7s%s %s%s%s\n" \
+          "$color_dim" "skip" "$color_reset" \
+          "$color_dim" "$p" "$color_reset"
+      else
+        printf "  %s%-7s%s %s%s%s\n" \
+          "$color_green" "add" "$color_reset" \
+          "$color_cyan" "$p" "$color_reset"
+        missing_patterns+=("$p")
+      fi
+    done
+
+    if (( ${#missing_patterns[@]} == 0 )); then
+      return
+    fi
+
+    local pat_json
+    pat_json="$(printf '%s\n' "${missing_patterns[@]}" | jq -R . | jq -s .)"
+
+    local tmp_file
+    tmp_file="$(mktemp)"
+    if [[ -f "$claude_settings_file" ]]; then
+      jq --argjson pats "$pat_json" '
+        .permissions //= {}
+        | .permissions.allow //= []
+        | .permissions.allow = (.permissions.allow + $pats)
+      ' "$claude_settings_file" > "$tmp_file"
+    else
+      jq -n --argjson pats "$pat_json" '{permissions: {allow: $pats}}' > "$tmp_file"
+    fi
+    mv "$tmp_file" "$claude_settings_file"
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 - "$claude_settings_file" "${patterns[@]}" <<'PY'
+import json, sys
+path = sys.argv[1]
+patterns = sys.argv[2:]
+try:
+    with open(path) as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        data = {}
+except Exception:
+    data = {}
+perms = data.setdefault("permissions", {})
+if not isinstance(perms, dict):
+    perms = {}
+    data["permissions"] = perms
+allow = perms.setdefault("allow", [])
+if not isinstance(allow, list):
+    allow = []
+    perms["allow"] = allow
+existing = set(allow)
+added = []
+for p in patterns:
+    if p in existing:
+        print(f"  skip    {p}")
+    else:
+        allow.append(p)
+        existing.add(p)
+        added.append(p)
+        print(f"  add     {p}")
+if added:
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+PY
+  else
+    printf "  %s%-7s%s %s%s%s\n" \
+      "$color_red" "blocked" "$color_reset" \
+      "$color_dim" "(neither jq nor python3 available; set permissions.allow by hand)" "$color_reset"
+  fi
+}
+
+# How many of the bundle's patterns are already present in
+# permissions.allow. Used for the status summary; emits "<n>/<total>".
+count_shared_context_permissions_set() {
+  local patterns=()
+  while IFS= read -r line; do patterns+=("$line"); done < <(build_shared_context_permission_patterns)
+  local total=${#patterns[@]}
+  local set_count=0
+
+  if [[ ! -f "$claude_settings_file" ]]; then
+    printf '%s/%s' "$set_count" "$total"
+    return
+  fi
+
+  if command -v jq >/dev/null 2>&1; then
+    local current_array_json
+    current_array_json="$(jq -c '.permissions.allow // []' "$claude_settings_file" 2>/dev/null || echo '[]')"
+    local p
+    for p in "${patterns[@]}"; do
+      if echo "$current_array_json" | jq -e --arg p "$p" 'any(.[]; . == $p)' >/dev/null 2>&1; then
+        set_count=$((set_count + 1))
+      fi
+    done
+  elif command -v python3 >/dev/null 2>&1; then
+    set_count="$(python3 - "$claude_settings_file" "${patterns[@]}" <<'PY'
+import json, sys
+path = sys.argv[1]
+patterns = sys.argv[2:]
+try:
+    with open(path) as f:
+        data = json.load(f)
+    allow = set(data.get("permissions", {}).get("allow", []))
+except Exception:
+    allow = set()
+print(sum(1 for p in patterns if p in allow))
+PY
+)"
+  fi
+
+  printf '%s/%s' "$set_count" "$total"
+}
+
 print_horizontal_rule() {
   printf '%s──────────────────────────────────────────────────────────%s\n' \
     "$color_dim" "$color_reset"
@@ -199,6 +439,26 @@ print_status_summary() {
   echo "  ${color_green}${in_sync_count}${color_reset} in sync, ${color_yellow}${needs_apply_count}${color_reset} need apply, ${color_red}${conflict_count}${color_reset} conflict(s), ${color_dim}${#untouched_basenames[@]} untouched${color_reset}."
   if (( copy_drift_count > 0 )); then
     echo "  ${color_dim}(${copy_drift_count} of those need 'force' — they differ from source.)${color_reset}"
+  fi
+
+  local current_global_root
+  current_global_root="$(read_global_shared_context_root)"
+  if [[ "$current_global_root" == "$shared_context_root" ]]; then
+    echo "  ${color_green}shared_context_root${color_reset} ${color_dim}set in ${claude_settings_file}${color_reset}"
+  elif [[ -z "$current_global_root" ]]; then
+    echo "  ${color_yellow}shared_context_root${color_reset} ${color_dim}not set (apply will write it to ${claude_settings_file})${color_reset}"
+  else
+    echo "  ${color_yellow}shared_context_root${color_reset} ${color_dim}points elsewhere — ${current_global_root} (apply will update it)${color_reset}"
+  fi
+
+  local perm_state
+  perm_state="$(count_shared_context_permissions_set)"
+  local perm_set="${perm_state%/*}"
+  local perm_total="${perm_state#*/}"
+  if [[ "$perm_set" == "$perm_total" ]]; then
+    echo "  ${color_green}shared-context perms${color_reset} ${color_dim}${perm_state} enrolled in ${claude_settings_file}${color_reset}"
+  else
+    echo "  ${color_yellow}shared-context perms${color_reset} ${color_dim}${perm_state} enrolled (apply will add the missing ones)${color_reset}"
   fi
 }
 
@@ -420,6 +680,9 @@ apply_changes_to_destination() {
       "$color_dim" "$note" "$color_reset"
   done
 
+  write_global_shared_context_root
+  write_global_shared_context_permissions
+
   echo
   echo "${color_bold}Applied ${color_green}${applied_count}${color_reset}${color_bold} change(s).${color_reset}"
   if (( deferred_count > 0 )); then
@@ -462,6 +725,9 @@ print_help_screen() {
   echo "                        ${color_dim}(default: this script's grandparent directory)${color_reset}"
   echo "  ${color_cyan}CLAUDE_COMMANDS_DIR${color_reset}   override the target directory"
   echo "                        ${color_dim}(default: ~/.claude/commands)${color_reset}"
+  echo "  ${color_cyan}CLAUDE_SETTINGS_FILE${color_reset}  override the global Claude settings file"
+  echo "                        ${color_dim}(default: ~/.claude/settings.json — apply writes shared_context_root${color_reset}"
+  echo "                        ${color_dim} and the shared-context permission bundle here)${color_reset}"
   echo "  ${color_cyan}NO_COLOR${color_reset}              set to disable color output"
 }
 
