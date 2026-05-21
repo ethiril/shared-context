@@ -8,13 +8,16 @@ import { fileURLToPath } from 'node:url';
 
 import { listDirectoryNames, listMarkdownFilenames } from './lib/fs-utils.mjs';
 import { loadFeature, isStale } from './lib/feature.mjs';
+import { discoverProjects } from './lib/globals.mjs';
 import { renderRootDashboard, renderFeatureStandalone, renderFeatureBody, renderBrowseFragment } from './lib/render-html.mjs';
 import { renderIndex } from './lib/render-index.mjs';
+import { renderGlobalIndex } from './lib/render-global-index.mjs';
 import { renderDocFromFile, renderFolderIndex, renderExamplesIndex } from './lib/render-docs.mjs';
 
 // Script lives at <repo-root>/framework/bin/render-dashboard.mjs.
 const REPO_ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const FEATURES_DIR = join(REPO_ROOT, 'features');
+const GLOBALS_DIR = join(REPO_ROOT, 'globals');
 const DASHBOARD_PATH = join(REPO_ROOT, 'dashboard.html');
 
 // Shared stylesheet — edit `framework/assets/dashboard.css` directly to
@@ -64,10 +67,35 @@ async function main() {
     await writeFile(join(feature.dir, 'browse-fragment.html'), renderBrowseFragment(feature));
   }
 
+  const projectCount = await renderGlobalIndexes(features);
+
   const docCount = await renderDocPages();
 
   const featureCount = features.length;
-  console.log(`Wrote ${DASHBOARD_PATH} + ${featureCount} feature page${featureCount === 1 ? '' : 's'} (standalone + body + browse fragments + _index.md each) + ${docCount} doc page${docCount === 1 ? '' : 's'}`);
+  console.log(`Wrote ${DASHBOARD_PATH} + ${featureCount} feature page${featureCount === 1 ? '' : 's'} (standalone + body + browse fragments + _index.md each) + ${projectCount} project index${projectCount === 1 ? '' : 'es'} + ${docCount} doc page${docCount === 1 ? '' : 's'}`);
+}
+
+// Project indexes — one `globals/<id>/_index.md` per project under `globals/`.
+// Each lists active entries (architecture/conventions/glossary) + features that
+// declared `project: <id>` in MISSION.md frontmatter.
+async function renderGlobalIndexes(features) {
+  const projects = await discoverProjects(GLOBALS_DIR);
+  if (!projects.length) return 0;
+
+  const featuresByProject = new Map();
+  for (const feature of features) {
+    const projectId = feature.mission?.fm?.project;
+    if (!projectId) continue;
+    if (!featuresByProject.has(projectId)) featuresByProject.set(projectId, []);
+    featuresByProject.get(projectId).push(feature);
+  }
+
+  for (const project of projects) {
+    const linked = featuresByProject.get(project.id) || [];
+    await writeFile(join(project.dir, '_index.md'), renderGlobalIndex(project, linked));
+  }
+
+  return projects.length;
 }
 
 // Doc pages — the linked cards on `index.html` (Agents roster, Conventions,
@@ -93,7 +121,7 @@ const FOLDER_INDEXES = [
     rel: 'framework/commands',
     depth: 1,
     title: 'Slash commands',
-    intro: '`/bootstrap`, `/join`, `/resume`, `/catch-up`, `/refresh`, `/pivot`, `/handoff`, `/audit`, `/close-project` — the verbs agents use to operate on a feature.',
+    intro: '`/bootstrap`, `/join`, `/resume`, `/catch-up`, `/refresh`, `/pivot`, `/handoff`, `/audit`, `/tighten`, `/global-add`, `/close-project` — the verbs agents use to operate on a feature or its umbrella project.',
     trail: [{ label: 'Framework', href: '../README.html' }],
     entryHref: stem => `${stem}.html`,
   },

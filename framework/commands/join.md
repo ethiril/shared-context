@@ -33,7 +33,7 @@ If the directory is empty or missing, proceed.
 
 Read enough to know what you're joining:
 
-1. `features/$ARGUMENTS/MISSION.md` — Goal, Scope, Repos involved, Success criteria.
+1. `features/$ARGUMENTS/MISSION.md` — Goal, Scope, Repos involved, Success criteria. **If frontmatter has `project: <id>`,** also read `globals/<id>/PROJECT.md` (mission, owners) and `globals/<id>/_index.md` (slugs + keywords). That gives you the shared-context surface you're joining. **Never bulk-load** entry files; pull specific entries only when your work touches matching keywords (README §2).
 2. Latest file in `features/$ARGUMENTS/orchestrator/` (lexically last) — current synthesised state. Fall back to latest `features/$ARGUMENTS/digest/` if no snapshot exists.
 
 Confirm your repo is named under MISSION's "Repos involved." If not, surface that to the user — they may have meant a different feature, OR MISSION needs amending first. **Stop and ask** before writing.

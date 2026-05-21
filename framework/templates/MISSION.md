@@ -4,6 +4,10 @@ feature: <slug>
 status: active
 created_at: <YYYY-MM-DDTHH:MM:SSZ>
 created_by: <repo>
+# Optional — declare this feature's umbrella project. Agents will load
+# globals/<project>/PROJECT.md + _index.md on bootstrap/join/resume, and pull
+# specific entries on demand. Omit if the feature stands alone.
+# project: <project-id>
 ---
 
 # Mission Control — <feature-slug>

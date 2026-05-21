@@ -23,6 +23,7 @@ Each slash command (§4) owns its own protocol. The rules below apply to every c
 - **DSL entries retired by a later `[pv]`'s `supersedes:` are out of scope** in every mode except `/audit`.
 - **`overview/` is deprecated.** Agents never write to it. MISSION.md + `## Amendments` is the single source of feature identity.
 - **Latest orchestrator snapshot is your checkpoint.** Treat everything older than its `at:` as absorbed. Fall back to newest `digest/` if no snapshot exists.
+- **`globals/<project>/` is load-on-demand.** When MISSION declares `project: <id>`: read `globals/<id>/PROJECT.md` and `globals/<id>/_index.md` once per session (cheap — index is a slug+keywords+summary table). Only pull a specific entry file when your current task hits matching keywords. **Never bulk-load** the architecture/conventions/glossary folders.
 
 ---
 
@@ -31,6 +32,7 @@ Each slash command (§4) owns its own protocol. The rules below apply to every c
 ```
 features/<slug>/
 ├── MISSION.md          static; human-authored at bootstrap, append-only `## Amendments` for scope changes
+│                       Optional `project: <id>` frontmatter declares the feature's umbrella project
 ├── _index.md           generated; do not write
 ├── orchestrator/       orchestrator-only; you never write here
 ├── repos/<repo>/       per-repo status; only the owning repo writes its own folder
@@ -40,6 +42,13 @@ features/<slug>/
 ├── log/                cross-repo messages (every repo)
 ├── tickets/<slug>.md   single-source-of-truth long-form work specs (edit-in-place)
 └── cursors/<repo>/     your bookmark; `current.md` rolls in place, owner-only
+
+globals/<project-id>/   sibling of features/; shared context that spans multiple features
+├── PROJECT.md          static; human-authored; mission, owners, north star
+├── _index.md           generated; the agent's cheap entry point — list of slugs + keywords + summaries
+├── architecture/       global architecture entries (any repo writes via /global-add)
+├── conventions/        cross-repo conventions
+└── glossary/           domain terms
 ```
 
 | Folder              | Who writes                                | When                                                            |
@@ -71,6 +80,7 @@ Each command file owns its protocol. This table is just the index.
 | `/pivot <slug> <reason>`               | Direction changing                                                    |
 | `/refresh <slug>`                      | Update the human dashboard now                                        |
 | `/tighten <slug>`                      | Review + refactor + test-verify the current branch's changes          |
+| `/global-add <project> <category> <slug>` | Add or update one entry under `globals/<project>/`                |
 | `/close-project <slug> [done\|paused]` | Wrapping up                                                           |
 
 ---
