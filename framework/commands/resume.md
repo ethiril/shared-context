@@ -16,9 +16,18 @@ Resume on feature **$ARGUMENTS**. Light state-load → apply pivots → pull inb
 
 **Once-per-session (skip if loaded):** `framework/README.md`, `AGENTS.md` → identify yourself from CWD.
 
-**Format-protocol skip rule:** Check `shared_context_framework_version` in your repo's `<CWD>/.claude/settings.local.json` (**not** `~/.claude/settings.local.json`). If it equals **2** (current — declared at README §7's `FRAMEWORK_VERSION`), use the format note below and skip re-reading §7. If missing/lower, read §7 in full, then bump the field. If higher, your slash command is out of date — flag to user.
+**Format-protocol skip rule:** Check `shared_context_framework_version` in your repo's `<CWD>/.claude/settings.local.json` (**not** `~/.claude/settings.local.json`). If it equals **3** (current — declared at README §7's `FRAMEWORK_VERSION`), use the format note below and skip re-reading §7. If missing/lower, read §7 in full, then bump the field. If higher, your slash command is out of date — flag to user.
 
-**Format note (≈ README §7, v2):** Logs are per-event DSL files in `log/` (`<iso>-<repo>-<slug>.dsl`, one line: `from > to [kind] @at: summary | refs | body`). Repo statuses are `<iso>.positional`. Contracts are `<iso>-<repo>-v<X.Y.Z>.dsl`. Legacy `*.md`+YAML still parses.
+**Format note (≈ README §7, v3):** Logs are per-event DSL files in `log/` (`<iso>-<repo>-<slug>.dsl`, one line: `from > to [kind] @at: summary | refs | body`). Repo statuses are `<iso>.positional`. Contracts are `<iso>-<repo>-v<X.Y.Z>.dsl`. Two rolling file indexes (v3): `globals/<project>/repos/<repo>/files.dsl` (`path | sha256:12 | @iso by repo: desc | keywords:…`) and `features/<slug>/repos/<repo>/touched.dsl` (`path | @iso: why-for-this-feature`); lookup/record protocol is README §2. Legacy `*.md`+YAML still parses.
+
+### 0. Inbox quick-gate (early exit if empty)
+
+**Before any state load.** List filenames in `features/$ARGUMENTS/log/` (a bare `ls`, no reads). Read only `cursors/<self>/current.md` (tiny) for `last_log_read`. Compare filenames:
+
+- **No log file newer than `last_log_read`** (lexical filename sort — UTC ISO names sort chronologically): nothing to do. Refresh the cursor's `at:` to now, write a one-line report ("no new inbox; cursor refreshed"), and **stop here.** Skip §1–§9 entirely — don't load the orchestrator, MISSION, or repo brief.
+- **At least one newer file, or no cursor yet:** continue to §1.
+
+This is the common case for a quiet ping between sessions; the gate avoids the orchestrator + MISSION + brief loads when there's no inbox.
 
 ### 1. Load state (light)
 

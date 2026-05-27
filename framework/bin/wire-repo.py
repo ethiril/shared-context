@@ -44,7 +44,7 @@ from typing import Any
 # Resolved once. Layout assumption: framework/bin/wire-repo.py.
 SCRIPT_PATH = Path(__file__).resolve()
 SHARED_CONTEXT_ROOT = SCRIPT_PATH.parent.parent.parent
-FRAMEWORK_VERSION = 2
+FRAMEWORK_VERSION = 3
 
 # Hook payloads applied to a repo's settings.local.json. The matcher / command
 # pairs are stable across repos; only SHARED_CONTEXT_ROOT varies.

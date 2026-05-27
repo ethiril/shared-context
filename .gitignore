@@ -22,6 +22,11 @@
 # Runtime artifacts produced by the orchestrator hook.
 framework/orchestrator/.last-run.log
 
+# Diagnostics-mode traces (opt-in hook-diagnostics.sh). Per-feature traces live
+# under features/<slug>/.diagnostics/ (already covered by /features/ above);
+# this covers the root-level session-attribution staging dir.
+/.diagnostics/
+
 # OS noise.
 .DS_Store
 
