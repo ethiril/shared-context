@@ -6,9 +6,9 @@ model: claude-opus-4-7
 
 Full audit of feature **$ARGUMENTS**. Protocol: `framework/README.md` §2 → Full audit.
 
-**Format-protocol skip rule:** Check `shared_context_framework_version` in your repo's `<CWD>/.claude/settings.local.json` (**not** `~/.claude/settings.local.json`). If it equals **2** (the current version, declared at README §7's `FRAMEWORK_VERSION`), the format note below is a complete substitute and **you can skip re-reading §7 entirely.** If missing or lower, read §7 in full, then update the field to 2 in settings.
+**Format-protocol skip rule:** Check `shared_context_framework_version` in your repo's `<CWD>/.claude/settings.local.json` (**not** `~/.claude/settings.local.json`). If it equals **3** (the current version, declared at README §7's `FRAMEWORK_VERSION`), the format note below is a complete substitute and **you can skip re-reading §7 entirely.** If missing or lower, read §7 in full, then update the field to 3 in settings.
 
-**Format note (≈ README §7, v2):** Logs live in `log/*.dsl` (one event per file, retirement via `[pv]` `supersedes:`) and legacy `log/*.md`. Repo statuses are `<iso>.positional` + legacy `.md`. Contracts are `<iso>-<repo>-v<X.Y.Z>.dsl` + legacy `.md`. Audit reads everything regardless of format.
+**Format note (≈ README §7, v3):** Logs live in `log/*.dsl` (one event per file, retirement via `[pv]` `supersedes:`) and legacy `log/*.md`. Repo statuses are `<iso>.positional` + legacy `.md`. Contracts are `<iso>-<repo>-v<X.Y.Z>.dsl` + legacy `.md`. The v3 file indexes (`globals/<project>/repos/<repo>/files.dsl`, `features/<slug>/repos/<repo>/touched.dsl`) are rolling agent memory — audit them only if a read-provenance question arises. Audit reads everything regardless of format.
 
 **Audit differs from `/catch-up`:**
 - Reads every log/decision/contract version newer than your cursor, **regardless of `to:`**.

@@ -6,9 +6,9 @@ model: claude-opus-4-7
 
 Catch-up on feature **$ARGUMENTS**. Protocol: `framework/README.md` §2 + this file. Reports state + next action; doesn't write inbox responses (use `/resume` for that).
 
-**Format-protocol skip rule:** Check `shared_context_framework_version` in your repo's `<CWD>/.claude/settings.local.json` (**not** `~/.claude/settings.local.json`). If it equals **2** (current — declared at README §7's `FRAMEWORK_VERSION`), use the format note below and skip re-reading §7. If missing/lower, read §7 in full, then bump the field.
+**Format-protocol skip rule:** Check `shared_context_framework_version` in your repo's `<CWD>/.claude/settings.local.json` (**not** `~/.claude/settings.local.json`). If it equals **3** (current — declared at README §7's `FRAMEWORK_VERSION`), use the format note below and skip re-reading §7. If missing/lower, read §7 in full, then bump the field.
 
-**Format note (≈ README §7, v2):** Logs are per-event `.dsl` in `log/` (one DSL line each). Repo statuses are `<iso>.positional`. Contracts are `<iso>-<repo>-v<X.Y.Z>.dsl`. Legacy `*.md`+YAML still parses.
+**Format note (≈ README §7, v3):** Logs are per-event `.dsl` in `log/` (one DSL line each). Repo statuses are `<iso>.positional`. Contracts are `<iso>-<repo>-v<X.Y.Z>.dsl`. Two rolling file indexes (v3): `globals/<project>/repos/<repo>/files.dsl` (`path | sha256:12 | @iso by repo: desc | keywords:…`) and `features/<slug>/repos/<repo>/touched.dsl` (`path | @iso: why-for-this-feature`); lookup/record protocol is README §2. Legacy `*.md`+YAML still parses.
 
 ### Read order — lead with the index, drill down as needed
 

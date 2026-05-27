@@ -28,9 +28,9 @@ Do this immediately on invocation. No `AskUserQuestion`, no prose-with-the-user.
 
 **Permissions live globally now.** The shared-context bundle (`Read`, `Write`, `Edit`, `Bash(node …/render-dashboard.mjs)`, `Bash(date -u *)`) is managed by `setup-claude.sh` in `~/.claude/settings.json` — do **not** add these to per-repo `.claude/settings.local.json`. If you find they're missing on this machine (you'll see permission prompts during this session), tell the user to run `framework/bin/setup-claude.sh` and choose `apply`.
 
-**Framework version marker** — this is per-repo state. Open `.claude/settings.local.json` in your CWD and set top-level field `"shared_context_framework_version": 2`. Tells future `/resume` and `/catch-up` sessions in this repo that you've absorbed README §7 at v2.
+**Framework version marker** — this is per-repo state. Open `.claude/settings.local.json` in your CWD and set top-level field `"shared_context_framework_version": 3`. Tells future `/resume` and `/catch-up` sessions in this repo that you've absorbed README §7 at v3.
 
-Idempotent: skip if the marker is already present. If the file doesn't exist, create it with `{"shared_context_framework_version": 2}`.
+Idempotent: skip if the marker is already present. If the file doesn't exist, create it with `{"shared_context_framework_version": 3}`.
 
 ### 1b. Scaffold folders + empty MISSION
 

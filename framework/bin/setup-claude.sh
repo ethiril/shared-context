@@ -273,8 +273,11 @@ build_shared_context_permission_patterns() {
     "Read($shared_context_root/**)" \
     "Write($shared_context_root/features/**)" \
     "Edit($shared_context_root/features/**)" \
+    "Write($shared_context_root/globals/**)" \
+    "Edit($shared_context_root/globals/**)" \
     "Bash(node $shared_context_root/framework/bin/render-dashboard.mjs)" \
-    "Bash(date -u *)"
+    "Bash(date -u *)" \
+    "Bash(shasum *)"
 }
 
 # Add any missing pattern from the bundle into permissions.allow in

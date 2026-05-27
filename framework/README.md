@@ -24,6 +24,7 @@ Each slash command (§4) owns its own protocol. The rules below apply to every c
 - **`overview/` is deprecated.** Agents never write to it. MISSION.md + `## Amendments` is the single source of feature identity.
 - **Latest orchestrator snapshot is your checkpoint.** Treat everything older than its `at:` as absorbed. Fall back to newest `digest/` if no snapshot exists.
 - **`globals/<project>/` is load-on-demand.** When MISSION declares `project: <id>`: read `globals/<id>/PROJECT.md` and `globals/<id>/_index.md` once per session (cheap — index is a slug+keywords+summary table). Only pull a specific entry file when your current task hits matching keywords. **Never bulk-load** the architecture/conventions/glossary folders.
+- **Source files go through the file index first** (only when MISSION declares `project: <id>`; see §7 for the format). Before opening a source file — your own, or another repo's that an inbox item references — grep `features/<feature>/repos/<repo>/touched.dsl` (if present) then `globals/<id>/repos/<repo>/files.dsl`. A hit whose `sha256:12` matches the file (`shasum -a 256 <path>`) means trust the description and skip the read. On a miss or stale hash **in your own repo**, read the file, then write/refresh its `files.dsl` line — skip lockfiles, generated/built output, binaries, vendored deps, files < 20 LOC. The feature `touched.dsl` pointer is **optional**: write it only once your repo's `files.dsl` is large (~50+ entries) and feature-scoped narrowing earns the second write. **Never write another repo's index.**
 
 ---
 
@@ -35,7 +36,7 @@ features/<slug>/
 │                       Optional `project: <id>` frontmatter declares the feature's umbrella project
 ├── _index.md           generated; do not write
 ├── orchestrator/       orchestrator-only; you never write here
-├── repos/<repo>/       per-repo status; only the owning repo writes its own folder
+├── repos/<repo>/       per-repo status (`<iso>.positional`) + optional feature file-touch index (`touched.dsl`, large indexes only); only the owning repo writes its own folder
 ├── contracts/<api>/    versioned API surfaces; written by the API's owning repo
 ├── decisions/          ADRs (any repo)
 ├── digest/             deep checkpoints (any repo; session-end or every ~10 log entries)
@@ -48,7 +49,8 @@ globals/<project-id>/   sibling of features/; shared context that spans multiple
 ├── _index.md           generated; the agent's cheap entry point — list of slugs + keywords + summaries
 ├── architecture/       global architecture entries (any repo writes via /global-add)
 ├── conventions/        cross-repo conventions
-└── glossary/           domain terms
+├── glossary/           domain terms
+└── repos/<repo>/       file index (`files.dsl`): path → hash → description per source file; only the owning repo writes its own folder
 ```
 
 | Folder              | Who writes                                | When                                                            |
@@ -62,6 +64,8 @@ globals/<project-id>/   sibling of features/; shared context that spans multiple
 | `tickets/`          | The repo owning the work                  | Cross-repo work that needs a long-form spec; edited in place    |
 | `cursors/<self>/`   | Only the owning repo                      | At session end (rolling `current.md`)                           |
 | `orchestrator/`     | The `orchestrator` identity only          | `/refresh <slug>` (default) or the opt-in digest hook           |
+| `globals/<proj>/repos/<self>/files.dsl` | Only the owning repo         | On every source-file read in your repo (rolling; hash-gated)    |
+| `features/<slug>/repos/<self>/touched.dsl` | Only the owning repo       | Optional; once your `files.dsl` is large (~50+), to narrow scans |
 
 ---
 
@@ -80,6 +84,7 @@ Each command file owns its protocol. This table is just the index.
 | `/pivot <slug> <reason>`               | Direction changing                                                    |
 | `/refresh <slug>`                      | Update the human dashboard now                                        |
 | `/tighten <slug>`                      | Review + refactor + test-verify the current branch's changes          |
+| `/diagnose <slug>`                     | Analyze diagnostics-mode traces — agent pathing, index hit-rate, deviations |
 | `/global-add <project> <category> <slug>` | Add or update one entry under `globals/<project>/`                |
 | `/close-project <slug> [done\|paused]` | Wrapping up                                                           |
 
@@ -100,6 +105,7 @@ Each command file owns its protocol. This table is just the index.
 | Contract version discussed and declined      | `contracts/<api>/<iso>-<repo>-v<version>.skipped.md` + log entry explaining why                    |
 | Direction is changing                        | `/pivot <slug> <reason>` — writes `[pv]` with `supersedes:`                                        |
 | Your repo's status changed                   | `repos/<self>/<iso>.positional`                                                                     |
+| Read a source file in your repo (first time / hash changed) | `globals/<proj>/repos/<self>/files.dsl` line (+ `touched.dsl` pointer only once that index is large) |
 | Want a checkpoint                            | `digest/<iso>-<repo>.md`                                                                            |
 | Want the dashboard re-synthesised            | `/refresh <slug>`                                                                                   |
 
@@ -111,7 +117,7 @@ Each command file owns its protocol. This table is just the index.
 
 YAML-frontmatter artefacts: `YYYY-MM-DDTHH-MM-SS-<repo>[-<slug>].md` — UTC (`date -u +"%Y-%m-%dT%H-%M-%S"`). Decisions drop the `<repo>` prefix: `<iso>-<title>.md`. Tickets are kebab-slug only (no timestamp; edit-in-place). Cursor is `cursors/<repo>/current.md` (overwrite each session).
 
-Compact artefacts (§7): `log/<iso>-<repo>-<slug>.dsl`, `repos/<repo>/<iso>.positional`, `contracts/<api>/<iso>-<repo>-v<X.Y.Z>.dsl`.
+Compact artefacts (§7): `log/<iso>-<repo>-<slug>.dsl`, `repos/<repo>/<iso>.positional`, `contracts/<api>/<iso>-<repo>-v<X.Y.Z>.dsl`. Rolling indexes (§7): `globals/<project>/repos/<repo>/files.dsl`, `features/<slug>/repos/<repo>/touched.dsl` — fixed names, edited in place.
 
 Tombstones: `<original-stem>.superseded.md` (retires a sibling); `<iso>-<repo>-v<version>.skipped.md` (contract version discussed and not published, standalone).
 
@@ -119,9 +125,11 @@ Tombstones: `<original-stem>.superseded.md` (retires a sibling); `<iso>-<repo>-v
 
 ## 7. Artefact formats
 
-**`FRAMEWORK_VERSION = 2`** — bumped when grammars change. Agents whose `.claude/settings.local.json` carries `"shared_context_framework_version": 2` can skip re-reading this section. `/bootstrap` and `/join` write the field.
+**`FRAMEWORK_VERSION = 3`** — bumped when grammars change. Agents whose `.claude/settings.local.json` carries `"shared_context_framework_version": 3` can skip re-reading this section. `/bootstrap` and `/join` write the field.
 
-**Bump triggers:** changing an existing format's grammar; introducing a new compact format flavour; renaming a kind code. **Non-bumps:** adding optional YAML fields with defaults; adding a new kind code that doesn't replace an existing one. Bumps require a `v2 → v3: <what changed>` migration note.
+**Bump triggers:** changing an existing format's grammar; introducing a new compact format flavour; renaming a kind code. **Non-bumps:** adding optional YAML fields with defaults; adding a new kind code that doesn't replace an existing one. Bumps require a `vN → vN+1: <what changed>` migration note.
+
+**`v2 → v3`:** added the two-tier file index — `globals/<project>/repos/<repo>/files.dsl` (project-level path→hash→description) and `features/<slug>/repos/<repo>/touched.dsl` (feature-level working set pointing into it). See the two index sections below. No existing format changed; agents on v2 only need to learn the two new rolling formats.
 
 `summary:` is **required** on every agent-targeted file. One sentence, ≤ 30 words. Feeds `_index.md`.
 
@@ -182,6 +190,45 @@ repo|at|summary|current_goal|done|next|blocked_on|contracts_in_play|open_questio
 
 ```
 api|2026-05-15T14:23:00Z|v1 enqueue shipped; awaiting worker ack|Enqueue welcome-email on signup|POST /signup enqueues v1.0.0~ADR published~Tests green|Joint staging test once worker confirms||[{"name":"welcome-email-job","version":"1.0.0","role":"owner","consumer":"worker"}]|[{"to":"worker","ask":"confirm consumer wired"}]
+```
+
+### file index — DSL, rolling, project-level
+
+Path: `globals/<project>/repos/<repo>/files.dsl`. One line per source file in `<repo>`. **Rolling**, not append-only: each path appears at most once; when a file's content hash changes, edit that line in place. Owner-write-only (only `<repo>`'s agent writes its own folder); any agent reads. The cross-feature memory of what each file *is*.
+
+```
+<rel-path> | <hash> | @<iso> by <repo>: <description> | keywords: k1,k2,...
+```
+
+- `<rel-path>` — path relative to the **repo root** (not shared-context). The join key for `touched.dsl`.
+- `<hash>` — `sha256:` + first 12 hex of the file's content. **Staleness gate:** before trusting a description, hash the file and compare; mismatch → re-read, rewrite the line.
+- `<description>` — ≤ 30 words. What the file is *for* (intent + responsibility), not a symbol dump.
+- `keywords:` — comma- or space-separated concepts so `grep` finds files by idea, not just by name.
+- Pipe-escape (`\|`) embedded `|`.
+
+**Populate on every source-file read.** Hash already matches an entry → no-op. **Skip:** lockfiles, generated/built output, binaries, vendored deps, files < 20 LOC.
+
+```
+src/billing/StripeWebhookHandler.kt | sha256:9af3c1d2e4b0 | @2026-05-26T14:23:00Z by app-gateway: Receives Stripe webhooks; routes invoice/subscription events to domain handlers; verifies signatures. | keywords: stripe, webhook, billing, subscription, invoice, signature
+```
+
+### feature file-touch index — DSL, rolling, feature-level (optional)
+
+Path: `features/<slug>/repos/<repo>/touched.dsl`. The feature's **working set**: which of `<repo>`'s files this feature has touched, pointing into the project `files.dsl` by path rather than duplicating the description. Rolling, owner-write-only. Lets an agent scan only files relevant to *this* feature before widening to the whole project index.
+
+**Optional — a scale optimization, not a day-one requirement.** Write it only once your repo's `files.dsl` is large enough (~50+ entries) that grepping the whole project index is noisy; below that, grep `files.dsl` directly and skip this tier. The read path always checks `touched.dsl` first *if it exists* (§2).
+
+```
+<rel-path> | @<iso>: <why-relevant-to-this-feature>
+```
+
+- `<rel-path>` — same key as the project index. Resolve the full description from `globals/<project>/repos/<repo>/files.dsl`.
+- `<why-relevant>` — optional one-liner: what the file means *for this feature* (e.g. "added trial_state column"). Empty after the colon = relevance pointer only.
+
+**Lookup order when seeking code:** feature `touched.dsl` (narrow) → project `files.dsl` (broad) → read the file, then populate both. Write a `touched.dsl` pointer whenever you add/refresh the matching `files.dsl` line during feature work.
+
+```
+src/billing/StripeWebhookHandler.kt | @2026-05-26T14:23:00Z: trial-end downgrade emits here; we added the subscription.expired branch for reverse-trial
 ```
 
 ### YAML artefacts

@@ -14,9 +14,9 @@ Read `framework/orchestrator/brief.md`. For `/refresh` you write as `orchestrato
 
 ### 2. Read inputs (per the brief)
 
-**Format-protocol skip rule:** Check `shared_context_framework_version` in `<CWD>/.claude/settings.local.json` (as orchestrator your CWD is typically the shared-context root, so this is the repo-root settings file — **not** `~/.claude/settings.local.json`). If it equals **2** (current — declared at README §7's `FRAMEWORK_VERSION`), the format note below is a complete substitute and **you can skip re-reading §7 entirely.** If missing or lower, read §7 in full, then update the field to 2.
+**Format-protocol skip rule:** Check `shared_context_framework_version` in `<CWD>/.claude/settings.local.json` (as orchestrator your CWD is typically the shared-context root, so this is the repo-root settings file — **not** `~/.claude/settings.local.json`). If it equals **3** (current — declared at README §7's `FRAMEWORK_VERSION`), the format note below is a complete substitute and **you can skip re-reading §7 entirely.** If missing or lower, read §7 in full, then update the field to 3.
 
-**Format note (≈ README §7, v2):** Inputs span DSL (`log/*.dsl`, `repos/<repo>/*.positional`, `contracts/<api>/*.dsl`) and YAML (`MISSION.md`, `orchestrator/`, `digest/`, `decisions/`, legacy `.md` siblings of any of the above). Read both shapes; filter by the same fields.
+**Format note (≈ README §7, v3):** Inputs span DSL (`log/*.dsl`, `repos/<repo>/*.positional`, `contracts/<api>/*.dsl`) and YAML (`MISSION.md`, `orchestrator/`, `digest/`, `decisions/`, legacy `.md` siblings of any of the above). Read both shapes; filter by the same fields. The v3 file indexes (`globals/<project>/repos/<repo>/files.dsl`, `features/<slug>/repos/<repo>/touched.dsl`) are agent working memory, **not** dashboard inputs — don't read them here.
 
 1. `features/$ARGUMENTS/MISSION.md` (YAML).
 2. Previous snapshot — `features/$ARGUMENTS/orchestrator/` latest file (YAML).
